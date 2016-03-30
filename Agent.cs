@@ -8,10 +8,88 @@ namespace MasterProject.Agent
 {
     public class Agent : MonoBehaviour
     {
+        public class Triangle
+        {
+            public Point3D pt1;
+            public Point3D pt2;
+            public Point3D pt3;
+
+            public Int3 center;
+            public double radius;
+
+            public Triangle(Point3D pt1, Point3D pt2, Point3D pt3)
+            {
+                this.pt1 = pt1;
+                this.pt2 = pt2;
+                this.pt3 = pt3;
+            }
+        }
+
+        public class Edge
+        {
+            // Описание типов ребер.
+            // slept - спящее ребро (еще не примавшее участия в алгоритме триангуляции);
+            // alive - свободное с одной стороны ребро;
+            // dead - замкнутое с двух сторон ребро.
+            public enum EdgeType { slept = 1, alive = 2, dead = 3 }
+            
+            // Точка 1.
+            public Point3D pt1;
+            // Точка 2.
+            public Point3D pt2;
+
+            public Edge(Point3D pt1, Point3D pt2)
+            {
+                this.pt1 = pt1;
+                this.pt2 = pt2;
+            }
+        }
+
+        // 1. Выбираем спящее контурное ребро.
+        // 2. Заносим это ребро в список frontiers
+        // 3. Получаем список всеъ точек, прнадлежащих спящим ребрам.
+        // 4. Проводим окружности через 2 точки рассматриваемого ребра и доп. точки.
+        // 5. Сравниваем радиусы окружностей. Выбираем с минимальным.
+        // 6. Строим два новых ребра из каждой точки рассматриваемого в найденную точку. Ограничение: одно из ребер уже может существовать (его в мертвое), новое построенное в живое.
+        // 7. Найденные ребра (о) сохраняем в frontiers.
+        // 8. Возвращаемся к шагу 1, и выполняем агоритм дотех пор, пока frontiers не станет пустым. 
+
+        private List<Edge> contour = new List<Edge>();
+
+        /// <summary>
+        /// Получаем замкнутый контур. Берем пока только первые точки в словаре.
+        /// </summary>
+        /// <param name="ptDict">Словарь точек</param>
+        private void CreateContour(Dictionary<int, List<Point3D>> ptDict)
+        {
+            int[] keys = ptDict.Keys.ToArray();
+            Edge edge;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (i == keys.Length - 1)
+                    edge = new Edge(ptDict[keys[i]][0], ptDict[keys[0]][0]);
+                else
+                    edge = new Edge(ptDict[keys[i]][0], ptDict[keys[i + 1]][0]);
+
+                contour.Add(edge);
+            }
+        }
+
+        private void DrawContour(Color lineColor)
+        {
+            Gizmos.color = lineColor;
+            for (int i = 0; i < contour.Count; i++)
+            {
+                Gizmos.DrawLine((Vector3) contour[i].pt1.position, (Vector3) contour[i].pt2.position);
+            }
+        }
+
         public LayerMask layerObstacles;
         public int rayLength = 20;
         public int turnOYAngle = 30;
         public float maxSlopeAngle = 30f;
+        public float error = 3;
 
         // Сканеры (пустые объекты на "голове" и "под ногами" агента)
         public Transform headScanner;
@@ -73,10 +151,13 @@ namespace MasterProject.Agent
                 ExcludeExtraPts();
             if (GUI.Button(new Rect(0f, 50f, 80, 30), "Approx."))
                 ApproximatePoints();
+            if (GUI.Button(new Rect(0f, 100f, 80, 30), "Contour"))
+                CreateContour(observedPoints);
         }
 
         public void OnDrawGizmos()
         {
+            // Отображение точек.
             if (observedPoints != null && observedPoints.Any())
             {
                 foreach (KeyValuePair<int, List<Point3D>> ptsSet in observedPoints)
@@ -89,6 +170,11 @@ namespace MasterProject.Agent
                 }
             }
 
+            // Отображение контура.
+            if (contour.Any())
+                DrawContour(Color.red);
+
+            // Отображение лучей сканеров.
             if (dbg_rays != null && dbg_rays.Any())
             {
                 foreach (RayDebug r in dbg_rays)
@@ -345,7 +431,7 @@ namespace MasterProject.Agent
             // Если ц. точка лежит на одной прямой с двумя крайними точками поднабора, то точка считается избыточной.
             for (int i = 1; i < points.Count - 1; i++)
             {
-                if (Geometry.CheckByVectorsIfPointBelongsTo3DLine((Int3) points[i - 1], (Int3) points[i], (Int3) points[i + 1], 2f))
+                if (Geometry.CheckByVectorsIfPointBelongsTo3DLine((Int3) points[i - 1], (Int3) points[i], (Int3) points[i + 1], error))
                 {
                     points[i].type = Point3DType.extraPt;
                 }
@@ -508,7 +594,6 @@ namespace MasterProject.Agent
             if (observedPoints.Any())
             {
                 List<int> keys = observedPoints.Keys.ToList();
-                //List<int> keys = observedPoints.Where(i => i.Value.Count != 0).Select(i => i.Key).ToList();
                 int key1, key2, key3;
 
                 for (int i = 1; i < keys.Count - 1; i++)
@@ -517,10 +602,11 @@ namespace MasterProject.Agent
                     key2 = keys[i];
                     key3 = keys[i + 1];
 
+                    // TODO: дописать условие на принадлежность точки объекту.
                     if (observedPoints[key1].Count == 1 &&
-                        observedPoints[key2].Count == 1 &&
+                        observedPoints[key2].Count == 1 && observedPoints[key2][0].type != Point3DType.keyPt &&
                         observedPoints[key3].Count == 1 &&
-                        Geometry.CheckByVectorsIfPointBelongsTo3DLine((Int3) observedPoints[key1][0], (Int3) observedPoints[key2][0], (Int3) observedPoints[key3][0], 5)
+                        Geometry.CheckByVectorsIfPointBelongsTo3DLine((Int3) observedPoints[key1][0], (Int3) observedPoints[key2][0], (Int3) observedPoints[key3][0], error)
                         )
                     {
                         observedPoints[keys[i]][0].type = Point3DType.extraPt;
