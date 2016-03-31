@@ -17,7 +17,7 @@ namespace MasterProject.Core
         {
             get
             {
-                return Math.Sqrt(x * x + y * y + z * z);
+                return Math.Sqrt((double)x * (double)x + (double)y * (double)y + (double)z * (double)z);
             }
         }
 
