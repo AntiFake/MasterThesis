@@ -9,16 +9,174 @@ namespace MasterProject.Agent
 {
     public class Agent : MonoBehaviour
     {
-        public class Triangle
+        /// <summary>
+        /// Класс, описывающий точку контура.
+        /// </summary>
+        public class ContourPoint
+        {
+            public int measurementAngle;
+            public Point3D point;
+            public ContourPoint nextPoint;
+            public ContourPoint prevPoint;
+
+            public ContourPoint(int ma, Point3D pt)
+            {
+                measurementAngle = ma;
+                point = pt;
+            }
+        }
+
+        /// <summary>
+        /// Класс, описывающий двусвязный кольцевой список точек контура.
+        /// </summary>
+        public class Contour
+        {
+            public ContourPoint currentPoint;
+
+            /// <summary>
+            /// Количество точек контура
+            /// </summary>
+            public int Count
+            {
+                get
+                {
+                    int index = currentPoint.measurementAngle, count = 1;
+                    currentPoint = currentPoint.nextPoint;
+
+                    while (index != currentPoint.measurementAngle)
+                    {
+                        currentPoint = currentPoint.nextPoint;
+                        count++;
+                    }
+                    return count;
+                }
+            }
+
+            public Contour(Dictionary<int, List<Point3D>> pts)
+            {
+                int[] keys = pts.Keys.ToArray();
+                ContourPoint start = null;
+
+                for (int i = 1; i < keys.Length; i++)
+                {
+                    if (currentPoint == null)
+                        currentPoint = new ContourPoint(keys[i - 1], pts[keys[i - 1]][0]);
+
+                    currentPoint.nextPoint = new ContourPoint(keys[i], pts[keys[i]][0]);
+                    currentPoint.nextPoint.prevPoint = currentPoint;
+                    currentPoint = currentPoint.nextPoint;
+
+                    if (i == 1)
+                        start = currentPoint.prevPoint;
+
+                    if (i == keys.Length - 1)
+                    {
+                        currentPoint.nextPoint = start;
+                        start.prevPoint = currentPoint;
+
+                        //Возврат в начало.
+                        currentPoint = currentPoint.nextPoint;
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Перемещение в начало списка.
+            /// </summary>
+            public void MoveToStart()
+            {
+                if (currentPoint.measurementAngle > 180)
+                {
+                    while (currentPoint.measurementAngle != 0)
+                    {
+                        currentPoint = currentPoint.nextPoint;
+                    }
+                }
+                else
+                {
+                    while (currentPoint.measurementAngle != 0)
+                    {
+                        currentPoint = currentPoint.prevPoint;
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Перемещение вперед на n элементов.
+            /// </summary>
+            /// <param name="n"></param>
+            public void MoveForward(int n)
+            {
+                int i = 0;
+                while (i < n)
+                {
+                    currentPoint = currentPoint.nextPoint;
+                    i++;
+                }
+            }
+
+            /// <summary>
+            /// Перемещение назад на n элементов.
+            /// </summary>
+            /// <param name="n"></param>
+            public void MoveBackward(int n)
+            {
+                int i = 0;
+                while (i < n)
+                {
+                    currentPoint = currentPoint.prevPoint;
+                    i++;
+                }
+            }
+
+            /// <summary>
+            /// Удаление текущей точки контура с перемещением.
+            /// </summary>
+            /// <param name="shiftForward">Перемещение вперед</param>
+            public void DeleteCurrentItem(bool shiftForward)
+            {
+                currentPoint.prevPoint.nextPoint = currentPoint.nextPoint;
+                currentPoint.nextPoint.prevPoint = currentPoint.prevPoint;
+
+                // Переход вперед.
+                if (shiftForward)
+                    currentPoint = currentPoint.nextPoint;
+                // Переход назад.
+                else
+                    currentPoint = currentPoint.prevPoint;
+            }
+
+            /// <summary>
+            /// Отображение контура в Gizmos.
+            /// </summary>
+            /// <param name="color">Цвет контура</param>
+            public void DrawContour(Color color)
+            {
+                int i = currentPoint.measurementAngle;
+                Gizmos.color = color;
+
+                do
+                {
+                    Gizmos.DrawLine((Vector3) currentPoint.point.position, (Vector3)currentPoint.nextPoint.point.position);
+                    Gizmos.DrawCube((Vector3) currentPoint.point.position, new Vector3(0.1f, 0.1f, 0.1f));
+                    currentPoint = currentPoint.nextPoint;
+                } while (i != currentPoint.measurementAngle);
+            }
+        }
+
+        private Contour contour;
+        private List<A> perps = new List<A>();
+        private double angle;
+
+        // ===================================
+
+        public class Poly
         {
             public Point3D pt1;
             public Point3D pt2;
             public Point3D pt3;
 
-            public Int3 center;
-            public double radius;
-
-            public Triangle(Point3D pt1, Point3D pt2, Point3D pt3)
+            public Poly(Point3D pt1, Point3D pt2, Point3D pt3)
             {
                 this.pt1 = pt1;
                 this.pt2 = pt2;
@@ -26,170 +184,58 @@ namespace MasterProject.Agent
             }
         }
 
-        public class Edge
+        public class A
         {
-            // Описание типов ребер.
-            // slept - спящее ребро (еще не примавшее участия в алгоритме триангуляции);
-            // alive - свободное с одной стороны ребро;
-            // dead - замкнутое с двух сторон ребро.
-            public enum EdgeType { slept = 1, alive = 2, dead = 3 }
-            
-            // Точка 1.
-            public Point3D pt1;
-            // Точка 2.
-            public Point3D pt2;
-            // Тип ребра.
-            public EdgeType type;
-
-            public Edge(Point3D pt1, Point3D pt2, EdgeType type)
-            {
-                this.pt1 = pt1;
-                this.pt2 = pt2;
-                this.type = type;
-            }
+            //public Vector3 dir { get; set; }
+            //public Vector3 origin { get; set; }
+            public Vector3 dir;
+            public Color color;
         }
 
-        private List<Edge> contour = new List<Edge>();
-        private List<Point3D> points = new List<Point3D>();
-
-        /// <summary>
-        /// Получаем замкнутый контур. Берем пока только первые точки в словаре.
-        /// </summary>
-        /// <param name="ptDict">Словарь точек</param>
-        private void CreateContour(Dictionary<int, List<Point3D>> ptDict)
+        public List<Poly> TriangulateArea(Contour contour)
         {
-            points = ptDict.Select(i => i.Value[0]).ToList();
 
-            int[] keys = ptDict.Keys.ToArray();
-            Edge edge;
-            
-            for (int i = 0; i < keys.Length; i++)
-            {
-                if (i == keys.Length - 1)
-                    edge = new Edge(ptDict[keys[i]][0], ptDict[keys[0]][0], Edge.EdgeType.slept);
-                else
-                    edge = new Edge(ptDict[keys[i]][0], ptDict[keys[i + 1]][0], Edge.EdgeType.slept);
 
-                contour.Add(edge);
-            }
+
+            // Точки треугольника.
+            Int3 a = contour.currentPoint.point.position;
+            Int3 b = contour.currentPoint.nextPoint.point.position;
+            Int3 c = contour.currentPoint.nextPoint.nextPoint.point.position;
+
+            // Векторы сторон. ac - проверяемая сторона.
+            Int3 ab = b - a;
+            Int3 bc = c - b;
+            Int3 ac = c - a;
+
+            // Биссектриссы углов A и B треугольника.
+            Vector3 b_a = ab.Normal + ac.Normal;
+            Vector3 b_b = ab.Normal + bc.Normal;
+
+            // Вектора-нормали.
+            //perps.Add(new A() { dir = ab.Right, origin = a });
+            //perps.Add(new A() { dir = bc.Right, origin = b });
+
+            Plane p = new Plane((Vector3)a, (Vector3) b, (Vector3) c);
+            //perps.Add(new A() { dir = b_a, color = Color.red });
+            //perps.Add(new A() { dir = b_b, color = Color.red });
+
+            var v = new Vector3(Math.Abs(p.normal.x), Math.Abs(p.normal.y), Math.Abs(p.normal.z));
+
+            perps.Add(new A() { dir = (Vector3) ab, color = Color.black });
+            perps.Add(new A() { dir = (Vector3) ac, color = Color.cyan });
+            perps.Add(new A() { dir = v, color = Color.blue });
+            perps.Add(new A() { dir = b_a, color = Color.green });
+            perps.Add(new A() { dir = Vector3.Cross(p.normal, (Vector3) ab), color = Color.yellow });
+
+            var res = ((Int3)Vector3.Cross(p.normal, (Vector3)ab)).GetAngleBetweenVectors((Int3)b_a);
+            angle = Vector3.Angle(Vector3.Cross(v, (Vector3)ab), b_a);// * 180 / Math.PI;
+
+            //perps.Add(new A() { dir = b_a, origin = a });
+
+            return null;
         }
 
-        private void DrawContour(Color lineColor)
-        {
-            Gizmos.color = lineColor;
-            for (int i = 0; i < contour.Count; i++)
-            {
-                Gizmos.DrawLine((Vector3) contour[i].pt1.position, (Vector3) contour[i].pt2.position);
-            }
-        }
-
-        // 1. Выбираем спящее контурное ребро.
-        // 2. Заносим это ребро в список frontier
-        // 3. Получаем список всех точек, принадлежащих спящим ребрам.
-        // 4. Проводим окружности через 2 точки рассматриваемого ребра и доп. точки.
-        // 5. Сравниваем радиусы окружностей. Выбираем с минимальным.
-        // 6. Строим два новых ребра из каждой точки рассматриваемого в найденную точку. Ограничение: одно из ребер уже может существовать (его в мертвое), новое построенное в живое.
-        // 7. Найденные ребра (о) сохраняем в frontier.
-        // 8. Возвращаемся к шагу 1, и выполняем алгоритм дотех пор, пока frontiers не станет пустым. 
-
-        // 1. После построения нового ребра делаем его спящим.
-        // 2. Проверяем не принадлежит новое ребро другому треугольнику, все ребра которого спящие.
-        // 3.   Если да, то все три ребра треугольника делаем мертвыми
-
-        private List<Triangle> TriangulateSpace()
-        {
-            List<Triangle> triangles = new List<Triangle>();
-            Dictionary<Point3D, double> circleRadiuses = new Dictionary<Point3D, double>();
-            KeyValuePair<Point3D, double> point;
-            int currentIndex, checkIndex1, checkIndex2;
-
-            if (!contour.Any())
-                return null;
-
-            while (contour.Any(i => i.type == Edge.EdgeType.slept))
-            {
-                // Поиск первого спящего ребра.
-                currentIndex = contour.FindIndex(i => i.type == Edge.EdgeType.slept);
-                contour[currentIndex].type = Edge.EdgeType.alive;
-
-                // Поиск наиболее выгодной точки для построения треугольника.
-                circleRadiuses = points
-                    .Where(i => !(i.position == contour[currentIndex].pt1.position || i.position == contour[currentIndex].pt2.position))
-                    .Select(i => new KeyValuePair<Point3D, double>(i, GetCircleRadius(contour[currentIndex], i))).ToDictionary(i => i.Key, i => i.Value);
-                point = circleRadiuses.OrderBy(i => i.Value).First();
-
-                // Обработка текущего ребра.
-                contour[currentIndex].type = Edge.EdgeType.dead;
-
-                // Добавление новых ребер.
-                checkIndex1 = contour.FindIndex(i => 
-                    (i.pt1.position == point.Key.position && (i.pt2.position == contour[currentIndex].pt1.position || i.pt2.position == contour[currentIndex].pt2.position)) 
-                    || 
-                    (i.pt2.position == point.Key.position && (i.pt1.position == contour[currentIndex].pt1.position || i.pt1.position == contour[currentIndex].pt2.position))
-                );
-
-                // Поиск смежного ребра.
-                if (checkIndex1 != -1)
-                {
-                    // Присвоение найденному ребру типа "Мертвое".
-                    contour[checkIndex1].type = Edge.EdgeType.dead;
-
-                    // Поиск второго смежного ребра.
-                    checkIndex2 = contour.FindIndex(i =>
-                        ((i.pt1.position == point.Key.position && (i.pt2.position == contour[currentIndex].pt1.position || i.pt2.position == contour[currentIndex].pt2.position))
-                        ||
-                        (i.pt2.position == point.Key.position && (i.pt1.position == contour[currentIndex].pt1.position || i.pt1.position == contour[currentIndex].pt2.position))
-                        &&
-                        i.type != Edge.EdgeType.dead)
-                    );
-
-                    // Второе ребро найдено => присвоение найденному ребру типа "Мертвое".
-                    if (checkIndex2 != -1)
-                        contour[checkIndex2].type = Edge.EdgeType.dead;
-                    // Второе ребро не найдено => добавление второго ребра и присвоение ему типа "Спящее".
-                    else
-                    {
-                        if (contour[checkIndex1].pt1.position == contour[currentIndex].pt1.position || contour[checkIndex1].pt2.position == contour[currentIndex].pt1.position)
-                            contour.Add(new Edge(contour[currentIndex].pt2, point.Key, Edge.EdgeType.slept));
-                        else
-                            contour.Add(new Edge(contour[currentIndex].pt1, point.Key, Edge.EdgeType.slept));
-                    }
-                }
-                // Ни одно ребро не найдено => присвоение им типа "Спящее".
-                else
-                {
-                    contour.Add(new Edge(contour[currentIndex].pt1, point.Key, Edge.EdgeType.slept));
-                    contour.Add(new Edge(contour[currentIndex].pt2, point.Key, Edge.EdgeType.slept));
-                }
-
-                // Если все ребра, которым принадлежит точка "мертвые", то производится удаление этой точки.
-                if (!contour.All(i => i.type != Edge.EdgeType.dead && (contour[currentIndex].pt1.position == i.pt1.position || contour[currentIndex].pt1.position == i.pt2.position)))
-                    points.RemoveAll(i => i.position == contour[currentIndex].pt1.position);
-
-                if (!contour.All(i => i.type != Edge.EdgeType.dead && (contour[currentIndex].pt2.position == i.pt1.position || contour[currentIndex].pt2.position == i.pt2.position)))
-                    points.RemoveAll(i => i.position == contour[currentIndex].pt2.position);
-
-                if (!contour.All(i => i.type != Edge.EdgeType.dead && (point.Key.position == i.pt1.position || point.Key.position == i.pt2.position)))
-                    points.RemoveAll(i => i.position == point.Key.position);
-
-                // Строим треугольник.
-                triangles.Add(new Triangle(contour[currentIndex].pt1, contour[currentIndex].pt2, point.Key));
-            }
-
-            return triangles;
-        }
-
-        private double GetCircleRadius(Edge edge, Point3D pt)
-        {
-            double a = (edge.pt1 - pt).position.Magnitude;
-            double b = (edge.pt2 - pt).position.Magnitude;
-            double c = (edge.pt1 - edge.pt2).position.Magnitude;
-            double p = 0.5 * (a + b + c);
-
-            double r = (a * b * c) / (4 * Math.Sqrt(p * (p - a) * (p - b) * (p - c)));
-
-            return r;
-        }
+        // ===================================
 
         public LayerMask layerObstacles;
         public int rayLength = 20;
@@ -258,15 +304,20 @@ namespace MasterProject.Agent
             if (GUI.Button(new Rect(0f, 50f, 80, 30), "Approx."))
                 ApproximatePoints();
             if (GUI.Button(new Rect(0f, 100f, 80, 30), "Contour"))
-                CreateContour(observedPoints);
-            if (GUI.Button(new Rect(0f, 150f, 80, 30), "Triangulation"))
-                TriangulateSpace();
+                contour = new Contour(observedPoints);
+            if (GUI.Button(new Rect(0f, 150f, 80f, 30f), "test"))
+            {
+                perps.Clear();
+                TriangulateArea(contour);
+                contour.MoveForward(1);
+            }
+            GUI.Label(new Rect(0f, 200, 80f, 30f), angle.ToString());
         }
 
         public void OnDrawGizmos()
         {
             // Отображение точек.
-            if (observedPoints != null && observedPoints.Any())
+            if (contour == null && observedPoints != null && observedPoints.Any())
             {
                 foreach (KeyValuePair<int, List<Point3D>> ptsSet in observedPoints)
                 {
@@ -279,8 +330,19 @@ namespace MasterProject.Agent
             }
 
             // Отображение контура.
-            if (contour.Any())
-                DrawContour(Color.red);
+            //if (contour.Any())
+            //    DrawContour(Color.red);
+            if (contour != null)
+                contour.DrawContour(Color.red);
+
+            if (perps != null)
+            {
+                for (int i = 0; i < perps.Count; i++)
+                {
+                    Gizmos.color = perps[i].color;
+                    Gizmos.DrawLine(Vector3.zero, perps[i].dir);
+                }
+            }
 
             // Отображение лучей сканеров.
             if (dbg_rays != null && dbg_rays.Any())
@@ -344,7 +406,7 @@ namespace MasterProject.Agent
 
             if (Physics.Raycast(hh_Ray, out hh_RayHit, rayLength, layerObstacles) && hh_RayHit.point != null)
             {
-                ptsBuffer.Add(new Point3D((Int3) hh_RayHit.point, hh_RayHit.collider.name));
+                ptsBuffer.Add(new Point3D((Int3)hh_RayHit.point, hh_RayHit.collider.name));
             }
 
             // Head-to-Middle.
@@ -356,7 +418,7 @@ namespace MasterProject.Agent
 
             if (Physics.Raycast(hm_Ray, out hm_RayHit, rayLength, layerObstacles) && hm_RayHit.point != null)
             {
-                ptsBuffer.Add(new Point3D((Int3) hm_RayHit.point, hm_RayHit.collider.name));
+                ptsBuffer.Add(new Point3D((Int3)hm_RayHit.point, hm_RayHit.collider.name));
             }
 
             // Head-to-Ground.
@@ -368,7 +430,7 @@ namespace MasterProject.Agent
 
             if (Physics.Raycast(hg_Ray, out hg_RayHit, rayLength, layerObstacles) && hg_RayHit.point != null)
             {
-                ptsBuffer.Add(new Point3D((Int3) hg_RayHit.point, hg_RayHit.collider.name));
+                ptsBuffer.Add(new Point3D((Int3)hg_RayHit.point, hg_RayHit.collider.name));
             }
 
             //dbg_rays.Add(new RayDebug(Color.blue, headPos, hg_Direction));
@@ -405,7 +467,7 @@ namespace MasterProject.Agent
 
             if (Physics.Raycast(gg_Ray, out gg_RayHit, rayLength, layerObstacles) && gg_RayHit.point != null)
             {
-                ptsBuffer.Add(new Point3D((Int3) gg_RayHit.point, gg_RayHit.collider.name));
+                ptsBuffer.Add(new Point3D((Int3)gg_RayHit.point, gg_RayHit.collider.name));
             }
             else
             {
@@ -421,7 +483,7 @@ namespace MasterProject.Agent
 
             if (Physics.Raycast(gm_Ray, out gm_RayHit, rayLength, layerObstacles) && gm_RayHit.point != null)
             {
-                ptsBuffer.Add(new Point3D((Int3) gm_RayHit.point, gm_RayHit.collider.name));
+                ptsBuffer.Add(new Point3D((Int3)gm_RayHit.point, gm_RayHit.collider.name));
             }
 
             //Ground-to-Head
@@ -433,7 +495,7 @@ namespace MasterProject.Agent
 
             if (Physics.Raycast(gh_Ray, out gh_RayHit, rayLength, layerObstacles) && gh_RayHit.point != null)
             {
-                ptsBuffer.Add(new Point3D((Int3) gh_RayHit.point, gh_RayHit.collider.name));
+                ptsBuffer.Add(new Point3D((Int3)gh_RayHit.point, gh_RayHit.collider.name));
             }
 
             //dbg_rays.Add(new RayDebug(Color.red, groundPos, gg_Direction));
@@ -468,7 +530,6 @@ namespace MasterProject.Agent
         /// <param name="scanner">Сканер</param>
         private void RotateRayScanner(Transform scanner, int direction = 1)
         {
-            Vector3 currRotation = scanner.eulerAngles;
             scanner.Rotate(new Vector3(0f, turnOYAngle * direction, 0f));
         }
 
@@ -494,7 +555,8 @@ namespace MasterProject.Agent
         {
             return points.Distinct(new Point3DEqualityComparer())
                             .OrderBy(i => i.position.y)
-                            .Select((i, index) => {
+                            .Select((i, index) =>
+                            {
                                 i.index_y = index;
                                 return i;
                             })
@@ -539,7 +601,7 @@ namespace MasterProject.Agent
             // Если ц. точка лежит на одной прямой с двумя крайними точками поднабора, то точка считается избыточной.
             for (int i = 1; i < points.Count - 1; i++)
             {
-                if (Geometry.CheckByVectorsIfPointBelongsTo3DLine((Int3) points[i - 1], (Int3) points[i], (Int3) points[i + 1], error))
+                if (GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine((Int3)points[i - 1], (Int3)points[i], (Int3)points[i + 1], error))
                 {
                     points[i].type = Point3DType.extraPt;
                 }
@@ -547,7 +609,7 @@ namespace MasterProject.Agent
 
             return points.Where(i => i.type != Point3DType.extraPt).ToList();
         }
-        
+
         /// <summary>
         /// Случай, если набор точек представляет собой последовательность из одного элемента
         /// </summary>
@@ -561,7 +623,7 @@ namespace MasterProject.Agent
                 point.type = Point3DType.sealedPt;
 
             // TODO: впоследствии заменить на уровень земли.
-            point.position.y = groundScannerInt3Pos.y; 
+            point.position.y = groundScannerInt3Pos.y;
 
             return point;
         }
@@ -714,7 +776,7 @@ namespace MasterProject.Agent
                     if (observedPoints[key1].Count == 1 &&
                         observedPoints[key2].Count == 1 && observedPoints[key2][0].type != Point3DType.keyPt &&
                         observedPoints[key3].Count == 1 &&
-                        Geometry.CheckByVectorsIfPointBelongsTo3DLine((Int3) observedPoints[key1][0], (Int3) observedPoints[key2][0], (Int3) observedPoints[key3][0], error)
+                        GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine((Int3)observedPoints[key1][0], (Int3)observedPoints[key2][0], (Int3)observedPoints[key3][0], error)
                         )
                     {
                         observedPoints[keys[i]][0].type = Point3DType.extraPt;

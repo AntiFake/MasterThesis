@@ -21,6 +21,25 @@ namespace MasterProject.Core
             }
         }
 
+        public Vector3 Normal
+        {
+            get
+            {
+                return new Vector3 (
+                    x  / (float) Magnitude,
+                    y / (float) Magnitude,
+                    z / (float) Magnitude
+                );
+            }
+        }
+        //public Int3 Right
+        //{
+        //    get
+        //    {
+        //        return (Int3) (Quaternion.Euler(0, 0, 90) * (Vector3)this);
+        //    }
+        //}
+
         public Int3(Vector3 position)
         {
             x = (int)Math.Round(position.x * FloatPrecision);
@@ -73,6 +92,11 @@ namespace MasterProject.Core
         public static int operator * (Int3 ip1, Int3 ip2)
         {
             return ip1.x * ip2.x + ip1.y * ip2.y + ip1.z * ip2.z;
+        }
+
+        public static Int3 operator +(Int3 ip1, Int3 ip2)
+        {
+            return new Int3(ip1.x + ip2.x, ip1.y + ip2.y, ip1.z + ip2.z);
         }
 
         /// <summary>
