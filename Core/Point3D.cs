@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace MasterProject.Core
@@ -35,10 +34,10 @@ namespace MasterProject.Core
             }
         }
 
-        public Point3D(Int3 pos, string name, Point3DType t = Point3DType.nonkeyPt)
+        public Point3D(Int3 pos, string obstacleName, Point3DType t = Point3DType.nonkeyPt)
         {
             position = pos;
-            obstacleName = name;
+            this.obstacleName = obstacleName;
             type = t;
         }
 

@@ -4,239 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using MasterProject.Core;
 using MasterProject.VisualDebug;
+using MasterProject.NavMesh;
 
 namespace MasterProject.Agent
 {
     public class Agent : MonoBehaviour
     {
-        /// <summary>
-        /// Класс, описывающий точку контура.
-        /// </summary>
-        public class ContourPoint
-        {
-            public int measurementAngle;
-            public Point3D point;
-            public ContourPoint nextPoint;
-            public ContourPoint prevPoint;
-
-            public ContourPoint(int ma, Point3D pt)
-            {
-                measurementAngle = ma;
-                point = pt;
-            }
-        }
-
-        /// <summary>
-        /// Класс, описывающий двусвязный кольцевой список точек контура.
-        /// </summary>
-        public class Contour
-        {
-            public ContourPoint currentPoint;
-
-            /// <summary>
-            /// Количество точек контура
-            /// </summary>
-            public int Count
-            {
-                get
-                {
-                    int index = currentPoint.measurementAngle, count = 1;
-                    currentPoint = currentPoint.nextPoint;
-
-                    while (index != currentPoint.measurementAngle)
-                    {
-                        currentPoint = currentPoint.nextPoint;
-                        count++;
-                    }
-                    return count;
-                }
-            }
-
-            public Contour(Dictionary<int, List<Point3D>> pts)
-            {
-                int[] keys = pts.Keys.ToArray();
-                ContourPoint start = null;
-
-                for (int i = 1; i < keys.Length; i++)
-                {
-                    if (currentPoint == null)
-                        currentPoint = new ContourPoint(keys[i - 1], pts[keys[i - 1]][0]);
-
-                    currentPoint.nextPoint = new ContourPoint(keys[i], pts[keys[i]][0]);
-                    currentPoint.nextPoint.prevPoint = currentPoint;
-                    currentPoint = currentPoint.nextPoint;
-
-                    if (i == 1)
-                        start = currentPoint.prevPoint;
-
-                    if (i == keys.Length - 1)
-                    {
-                        currentPoint.nextPoint = start;
-                        start.prevPoint = currentPoint;
-
-                        //Возврат в начало.
-                        currentPoint = currentPoint.nextPoint;
-                    }
-                }
-            }
-
-            /// <summary>
-            /// Перемещение в начало списка.
-            /// </summary>
-            public void MoveToStart()
-            {
-                if (currentPoint.measurementAngle > 180)
-                {
-                    while (currentPoint.measurementAngle != 0)
-                    {
-                        currentPoint = currentPoint.nextPoint;
-                    }
-                }
-                else
-                {
-                    while (currentPoint.measurementAngle != 0)
-                    {
-                        currentPoint = currentPoint.prevPoint;
-                    }
-                }
-            }
-
-            /// <summary>
-            /// Перемещение вперед на n элементов.
-            /// </summary>
-            /// <param name="n"></param>
-            public void MoveForward(int n)
-            {
-                int i = 0;
-                while (i < n)
-                {
-                    currentPoint = currentPoint.nextPoint;
-                    i++;
-                }
-            }
-
-            /// <summary>
-            /// Перемещение назад на n элементов.
-            /// </summary>
-            /// <param name="n"></param>
-            public void MoveBackward(int n)
-            {
-                int i = 0;
-                while (i < n)
-                {
-                    currentPoint = currentPoint.prevPoint;
-                    i++;
-                }
-            }
-
-            /// <summary>
-            /// Удаление текущей точки контура с перемещением.
-            /// </summary>
-            /// <param name="shiftForward">Перемещение вперед</param>
-            public void DeleteCurrentItem(bool shiftForward)
-            {
-                currentPoint.prevPoint.nextPoint = currentPoint.nextPoint;
-                currentPoint.nextPoint.prevPoint = currentPoint.prevPoint;
-
-                // Переход вперед.
-                if (shiftForward)
-                    currentPoint = currentPoint.nextPoint;
-                // Переход назад.
-                else
-                    currentPoint = currentPoint.prevPoint;
-            }
-
-            /// <summary>
-            /// Отображение контура в Gizmos.
-            /// </summary>
-            /// <param name="color">Цвет контура</param>
-            public void DrawContour(Color color)
-            {
-                int i = currentPoint.measurementAngle;
-                Gizmos.color = color;
-
-                do
-                {
-                    Gizmos.DrawLine((Vector3) currentPoint.point.position, (Vector3)currentPoint.nextPoint.point.position);
-                    Gizmos.DrawCube((Vector3) currentPoint.point.position, new Vector3(0.1f, 0.1f, 0.1f));
-                    currentPoint = currentPoint.nextPoint;
-                } while (i != currentPoint.measurementAngle);
-            }
-        }
-
-        private Contour contour;
-        private List<A> perps = new List<A>();
-        private double angle;
-
-        // ===================================
-
-        public class Poly
-        {
-            public Point3D pt1;
-            public Point3D pt2;
-            public Point3D pt3;
-
-            public Poly(Point3D pt1, Point3D pt2, Point3D pt3)
-            {
-                this.pt1 = pt1;
-                this.pt2 = pt2;
-                this.pt3 = pt3;
-            }
-        }
-
-        public class A
-        {
-            //public Vector3 dir { get; set; }
-            //public Vector3 origin { get; set; }
-            public Vector3 dir;
-            public Color color;
-        }
-
-        public List<Poly> TriangulateArea(Contour contour)
-        {
-
-
-
-            // Точки треугольника.
-            Int3 a = contour.currentPoint.point.position;
-            Int3 b = contour.currentPoint.nextPoint.point.position;
-            Int3 c = contour.currentPoint.nextPoint.nextPoint.point.position;
-
-            // Векторы сторон. ac - проверяемая сторона.
-            Int3 ab = b - a;
-            Int3 bc = c - b;
-            Int3 ac = c - a;
-
-            // Биссектриссы углов A и B треугольника.
-            Vector3 b_a = ab.Normal + ac.Normal;
-            Vector3 b_b = ab.Normal + bc.Normal;
-
-            // Вектора-нормали.
-            //perps.Add(new A() { dir = ab.Right, origin = a });
-            //perps.Add(new A() { dir = bc.Right, origin = b });
-
-            Plane p = new Plane((Vector3)a, (Vector3) b, (Vector3) c);
-            //perps.Add(new A() { dir = b_a, color = Color.red });
-            //perps.Add(new A() { dir = b_b, color = Color.red });
-
-            var v = new Vector3(Math.Abs(p.normal.x), Math.Abs(p.normal.y), Math.Abs(p.normal.z));
-
-            perps.Add(new A() { dir = (Vector3) ab, color = Color.black });
-            perps.Add(new A() { dir = (Vector3) ac, color = Color.cyan });
-            perps.Add(new A() { dir = v, color = Color.blue });
-            perps.Add(new A() { dir = b_a, color = Color.green });
-            perps.Add(new A() { dir = Vector3.Cross(p.normal, (Vector3) ab), color = Color.yellow });
-
-            var res = ((Int3)Vector3.Cross(p.normal, (Vector3)ab)).GetAngleBetweenVectors((Int3)b_a);
-            angle = Vector3.Angle(Vector3.Cross(v, (Vector3)ab), b_a);// * 180 / Math.PI;
-
-            //perps.Add(new A() { dir = b_a, origin = a });
-
-            return null;
-        }
-
-        // ===================================
-
         public LayerMask layerObstacles;
         public int rayLength = 20;
         public int turnOYAngle = 30;
@@ -266,12 +39,14 @@ namespace MasterProject.Agent
         private Ray gh_Ray;
         private Vector3 gh_Direction;
 
-
         // Словарь для хранения найденных точек.
         // Градус отклонения лучей - ключ, массив точек - список значений.
         private Dictionary<int, List<Point3D>> observedPoints;
         // Буфер для хранения точек. Значениями из буфера заполняется словарь хранения найденных точек.
         private List<Point3D> ptsBuffer;
+        // Механизм разбиения проходиомй области на треугольники.
+        private Triangulator triangulator;
+        private List<Triangle> passableArea;
         #endregion
 
         #region Сканеры
@@ -280,13 +55,16 @@ namespace MasterProject.Agent
         #endregion
 
         #region Debug
-        private List<RayDebug> dbg_rays;
+        private List<RayDebug> raysDebug;
+        private NavMeshDebug navMeshDebug;
         #endregion
 
         #region MonoBehavior-функции
         public void Awake()
         {
-            dbg_rays = new List<RayDebug>();
+            raysDebug = new List<RayDebug>();
+            navMeshDebug = new NavMeshDebug();
+            triangulator = new Triangulator();
 
             observedPoints = new Dictionary<int, List<Point3D>>();
             ptsBuffer = new List<Point3D>();
@@ -303,21 +81,14 @@ namespace MasterProject.Agent
                 ExcludeExtraPts();
             if (GUI.Button(new Rect(0f, 50f, 80, 30), "Approx."))
                 ApproximatePoints();
-            if (GUI.Button(new Rect(0f, 100f, 80, 30), "Contour"))
-                contour = new Contour(observedPoints);
             if (GUI.Button(new Rect(0f, 150f, 80f, 30f), "test"))
-            {
-                perps.Clear();
-                TriangulateArea(contour);
-                contour.MoveForward(1);
-            }
-            GUI.Label(new Rect(0f, 200, 80f, 30f), angle.ToString());
+                passableArea = triangulator.TriangulateArea(new Contour(observedPoints));
         }
 
         public void OnDrawGizmos()
         {
             // Отображение точек.
-            if (contour == null && observedPoints != null && observedPoints.Any())
+            if (observedPoints != null && observedPoints.Any())
             {
                 foreach (KeyValuePair<int, List<Point3D>> ptsSet in observedPoints)
                 {
@@ -329,25 +100,15 @@ namespace MasterProject.Agent
                 }
             }
 
-            // Отображение контура.
-            //if (contour.Any())
-            //    DrawContour(Color.red);
-            if (contour != null)
-                contour.DrawContour(Color.red);
+            // Отображение треугольников
+            if (passableArea != null)
+                navMeshDebug.DrawTriangles(Color.magenta, passableArea);
 
-            if (perps != null)
-            {
-                for (int i = 0; i < perps.Count; i++)
-                {
-                    Gizmos.color = perps[i].color;
-                    Gizmos.DrawLine(Vector3.zero, perps[i].dir);
-                }
-            }
 
             // Отображение лучей сканеров.
-            if (dbg_rays != null && dbg_rays.Any())
+            if (raysDebug != null && raysDebug.Any())
             {
-                foreach (RayDebug r in dbg_rays)
+                foreach (RayDebug r in raysDebug)
                 {
                     Debug.DrawRay(r.origin, r.direction, r.color);
                 }
@@ -576,6 +337,7 @@ namespace MasterProject.Agent
 
             string on = vectors[0].Key;
             double min = vectors[0].Value;
+            int index = 0;
 
             for (int i = 1; i < vectors.Count; i++)
             {
@@ -583,7 +345,17 @@ namespace MasterProject.Agent
                 {
                     min = vectors[i].Value;
                     on = vectors[i].Key;
+                    index = i;
                 }
+            }
+
+            // Исключение висячих точек в воздухе.
+            if (min < vectors[0].Value)
+            {
+                return new List<Point3D>()
+                {
+                    new Point3D(new Int3(points[index].position.x, ((Int3)groundScanner.position).y, points[index].position.z), points[index].obstacleName, points[index].type)
+                };
             }
 
             return points.Where(i => i.obstacleName == on || string.IsNullOrEmpty(i.obstacleName)).ToList();

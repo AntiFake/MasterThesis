@@ -62,12 +62,4 @@ namespace MasterProject.Core
             return r;
         }
     }
-
-    public class VectorGeometry
-    {
-        public Int3 GetPerpendicular()
-        {
-            return null;
-        }
-    }
 }
