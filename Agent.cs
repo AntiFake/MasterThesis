@@ -8,7 +8,7 @@ using MasterProject.NavMesh;
 
 namespace MasterProject.Agent
 {
-    public class Agent : MonoBehaviour
+    public partial class Agent : MonoBehaviour
     {
         public LayerMask layerObstacles;
         public int rayLength = 20;
@@ -42,23 +42,22 @@ namespace MasterProject.Agent
         // Словарь для хранения найденных точек.
         // Градус отклонения лучей - ключ, массив точек - список значений.
         private Dictionary<int, List<Point3D>> observedPoints;
+        
         // Буфер для хранения точек. Значениями из буфера заполняется словарь хранения найденных точек.
         private List<Point3D> ptsBuffer;
-        // Механизм разбиения проходиомй области на треугольники.
+        
+        // Механизм разбиения проходимой области на треугольники.
+        private Contour contour;
         private Triangulator triangulator;
         private List<Triangle> passableArea;
+        
         #endregion
 
         #region Сканеры
         private Int3 headScannerInt3Pos;
         private Int3 groundScannerInt3Pos;
         #endregion
-
-        #region Debug
-        private List<RayDebug> raysDebug;
-        private NavMeshDebug navMeshDebug;
-        #endregion
-
+        
         #region MonoBehavior-функции
         public void Awake()
         {
@@ -74,47 +73,6 @@ namespace MasterProject.Agent
         {
             ScanArea();
         }
-
-        public void OnGUI()
-        {
-            if (GUI.Button(new Rect(0f, 0f, 80, 30), "Excl"))
-                ExcludeExtraPts();
-            if (GUI.Button(new Rect(0f, 50f, 80, 30), "Approx."))
-                ApproximatePoints();
-            if (GUI.Button(new Rect(0f, 150f, 80f, 30f), "test"))
-                passableArea = triangulator.TriangulateArea(new Contour(observedPoints));
-        }
-
-        public void OnDrawGizmos()
-        {
-            // Отображение точек.
-            if (observedPoints != null && observedPoints.Any())
-            {
-                foreach (KeyValuePair<int, List<Point3D>> ptsSet in observedPoints)
-                {
-                    foreach (Point3D pt in ptsSet.Value)
-                    {
-                        Gizmos.color = pt.PointColor;
-                        Gizmos.DrawCube((Vector3)pt.position, new Vector3(0.1f, 0.1f, 0.1f));
-                    }
-                }
-            }
-
-            // Отображение треугольников
-            if (passableArea != null)
-                navMeshDebug.DrawTriangles(Color.magenta, passableArea);
-
-
-            // Отображение лучей сканеров.
-            if (raysDebug != null && raysDebug.Any())
-            {
-                foreach (RayDebug r in raysDebug)
-                {
-                    Debug.DrawRay(r.origin, r.direction, r.color);
-                }
-            }
-        }
-
         #endregion
 
         #region Получение информации об области вокруг
@@ -304,7 +262,6 @@ namespace MasterProject.Agent
         }
         #endregion
 
-
         #region Обработка полученных точек карты
 
         /// <summary>
@@ -329,6 +286,9 @@ namespace MasterProject.Agent
         /// </summary>
         /// <param name="points"></param>
         /// <returns></returns>
+        /// 1. Бежим по набору точек.
+        /// 2. Смотрим если точка принадлежит одному и тому же объекту - продолжаем движение.
+        /// 3. Если внезапно принадлежит другому, то сохраняем ее и делаем break.
         private List<Point3D> DeleteExtraObjectPoints(List<Point3D> points)
         {
             List<KeyValuePair<string, double>> vectors = points

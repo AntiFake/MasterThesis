@@ -30,12 +30,15 @@ namespace MasterProject.NavMesh
         public ContourPoint currentPoint;
 
         /// <summary>
-        /// Количество точек контура
+        /// Количество точек контура.
         /// </summary>
         public int Count
         {
             get
             {
+                if (currentPoint == null)
+                    return 0;
+
                 int index = currentPoint.measurementAngle, count = 0;
 
                 do
