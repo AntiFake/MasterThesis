@@ -60,8 +60,8 @@ namespace MasterProject.Agent
                 navMeshDebug.DrawTriangles(Color.blue, new Color(0f, 255f, 0f), passableArea);
 
             // Отображение контура
-            if (contour != null)
-                navMeshDebug.DrawContour(Color.red, contour);
+            if (contours != null)
+                navMeshDebug.DrawContours(Color.red, contours);
         }
 
         /// <summary>
@@ -76,13 +76,32 @@ namespace MasterProject.Agent
 
             if (GUI.Button(new Rect(0f, 150f, 200f, 30f), "ImmediateTest"))
             {
-                contour = new Contour(observedPoints);
-                passableArea = triangulator.TriangulateArea(contour);
+                contours.Add(new Contour(observedPoints));
+                var slopes = Contour.Slopes(observedPoints);
+                foreach (var slope in slopes)
+                {
+                    contours.Add(new Contour(slope, ""));
+                }
+
+                foreach (var contour in contours)
+                {
+                    passableArea.AddRange(triangulator.TriangulateArea(contour));
+                }
             }
 
-            if (GUI.Button(new Rect(0f, 200f, 200f, 30f), "StepByStep"))
+            //if (GUI.Button(new Rect(0f, 200f, 200f, 30f), "StepByStep"))
+            //{
+            //    triangulator.SBS_TriangulateArea(observedPoints, ref contour, ref passableArea);
+            //}
+
+            if (GUI.Button(new Rect(0f, 250f, 200f, 30f), "Slopes"))
             {
-                triangulator.SBS_TriangulateArea(observedPoints, ref contour, ref passableArea);
+                var slopes = Contour.Slopes(observedPoints);
+                foreach (var slope in slopes)
+                {
+                    //contour = new Contour(slope, "");
+                    //passableArea = triangulator.TriangulateArea(contour);    
+                }
             }
         }
     }

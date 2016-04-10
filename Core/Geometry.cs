@@ -11,7 +11,7 @@ namespace MasterProject.Core
             v1 = pt2 - pt1;
             v2 = pt3 - pt1;
 
-            double angle = v1.GetAngleBetweenVectors(v2);
+            double angle = v1.GetAngle(v2);
 
             if (angle >= (-1) * error && angle <= error)
                 return true;

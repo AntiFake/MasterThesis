@@ -47,7 +47,7 @@ namespace MasterProject.Agent
         private List<Point3D> ptsBuffer;
         
         // Механизм разбиения проходимой области на треугольники.
-        private Contour contour;
+        private List<Contour> contours;
         private Triangulator triangulator;
         private List<Triangle> passableArea;
         
@@ -66,6 +66,9 @@ namespace MasterProject.Agent
             triangulator = new Triangulator();
 
             observedPoints = new Dictionary<int, List<Point3D>>();
+            passableArea = new List<Triangle>();
+            contours = new List<Contour>();
+
             ptsBuffer = new List<Point3D>();
         }
 
@@ -432,7 +435,7 @@ namespace MasterProject.Agent
                 vector2 = new Int3(projection - points[i].position);
 
                 // 2. Поиск величины угла
-                if (vector1.GetAngleBetweenVectors(vector2) < maxSlopeAngle)
+                if (vector1.GetAngle(vector2) < maxSlopeAngle)
                     result.Add(points[i + 1]);
                 else
                 {
@@ -457,10 +460,10 @@ namespace MasterProject.Agent
                     List<Point3D> ptsSet = observedPoints[key];
                     switch (ptsSet.Count)
                     {
-                        // 0 точек в наборе
+                        // 0 точек в наборе.
                         case 0:
                             break;
-                        // 1 точка в наборе. Делаем эту точку ключевой
+                        // 1 точка в наборе. Делаем эту точку ключевой.
                         case 1:
                             ptsSet[0] = HandleSinglePoint(ptsSet[0]);
                             observedPoints[key] = ptsSet;
@@ -471,7 +474,7 @@ namespace MasterProject.Agent
                             ptsSet = DeleteOnlineExtraPoints(ptsSet);
                             ptsSet = DeleteExtraObjectPoints(ptsSet);
 
-                            // Если после первых трех стадий обработки в словаре остается 1-а точка
+                            // Если после первых трех стадий обработки в словаре остается 1-а точка.
                             if (ptsSet.Count == 1)
                             {
                                 ptsSet[0] = HandleSinglePoint(ptsSet[0]);

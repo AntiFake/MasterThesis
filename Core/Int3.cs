@@ -104,7 +104,7 @@ namespace MasterProject.Core
         /// </summary>
         /// <param name="vect">Вектор</param>
         /// <returns>Угол между векторами</returns>
-        public double GetAngleBetweenVectors(Int3 vect)
+        public double GetAngle(Int3 vect)
         {
             ///           a * b
             /// arccos( --------- )

@@ -1,11 +1,14 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using MasterProject.NavMesh;
+using System;
 
 namespace MasterProject.VisualDebug
 {
     public class NavMeshDebug
     {
+        private long i = 0;
+
         /// <summary>
         /// Отображение заполненного цветом треугольника треугольника.
         /// </summary>
@@ -37,15 +40,28 @@ namespace MasterProject.VisualDebug
         }
 
         /// <summary>
+        /// Отображение всех контуров.
+        /// </summary>
+        /// <param name="color">Цвет ребер</param>
+        /// <param name="contours">Контуры</param>
+        public void DrawContours(Color color, List<Contour> contours)
+        {
+            foreach (var contour in contours)
+            {
+                DrawContour(color, contour);
+            }
+        }
+
+        /// <summary>
         /// Отображение контура в Gizmos.
         /// </summary>
         /// <param name="color">Цвет контура</param>
-        public void DrawContour(Color color, Contour contour)
+        private void DrawContour(Color color, Contour contour)
         {
             if (contour.currentPoint == null)
                 return;
 
-            int i = contour.currentPoint.measurementAngle;
+            Guid i = contour.currentPoint.uniqueIndex;
             Gizmos.color = color;
 
             do
@@ -53,7 +69,7 @@ namespace MasterProject.VisualDebug
                 Gizmos.DrawLine((Vector3)contour.currentPoint.point.position, (Vector3)contour.currentPoint.nextPoint.point.position);
                 Gizmos.DrawCube((Vector3)contour.currentPoint.point.position, new Vector3(0.1f, 0.1f, 0.1f));
                 contour.currentPoint = contour.currentPoint.nextPoint;
-            } while (i != contour.currentPoint.measurementAngle);
+            } while (i != contour.currentPoint.uniqueIndex);
         }
 
         /// <summary>
@@ -71,7 +87,7 @@ namespace MasterProject.VisualDebug
                 Gizmos.DrawLine((Vector3)triangle.pt3.position, (Vector3)triangle.pt1.position);
 
                 Gizmos.color = fillColor;
-                Gizmos.DrawMesh(GetTriangleMesh(triangle));
+                //Gizmos.DrawMesh(GetTriangleMesh(triangle));
             }
         }
     }
