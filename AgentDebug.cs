@@ -47,7 +47,7 @@ namespace MasterProject.Agent
                 }
             }
         }
-        
+
         /// <summary>
         /// Отображение.
         /// </summary>
@@ -57,11 +57,11 @@ namespace MasterProject.Agent
 
             // Отображение треугольников
             if (passableArea != null)
-                navMeshDebug.DrawTriangles(Color.blue, new Color(0f, 255f, 0f), passableArea);
+                navMeshDebug.DrawTriangles(Color.green, new Color(0f, 0f, 150f), passableArea);
 
             // Отображение контура
             if (contours != null)
-                navMeshDebug.DrawContours(Color.red, contours);
+                navMeshDebug.DrawContours(Color.magenta, contours);
         }
 
         /// <summary>
@@ -74,35 +74,41 @@ namespace MasterProject.Agent
             if (GUI.Button(new Rect(0f, 50f, 80, 30), "Approx."))
                 ApproximatePoints();
 
-            if (GUI.Button(new Rect(0f, 150f, 200f, 30f), "ImmediateTest"))
+            if (GUI.Button(new Rect(0f, 150f, 200f, 30f), "Contour"))
             {
-                contours.Add(new Contour(observedPoints));
-                var slopes = Contour.Slopes(observedPoints);
-                foreach (var slope in slopes)
-                {
-                    contours.Add(new Contour(slope, ""));
-                }
+                contours.Add(new Contour(observedPoints, new string[] { }));
+                //contours.Add(new Contour(observedPoints));
+                //c = new Contour(observedPoints, new string[] { });
+                //foreach (var contour in contours)
+                //{
+                //    passableArea.AddRange(triangulator.TriangulateArea(contour, groundScannerInt3Pos));
+                //}
 
+                //contours.Add(new Contour(observedPoints));
+                //var slopes = Contour.Slopes(observedPoints);
+                //foreach (var slope in slopes)
+                //{
+                //    contours.Add(new Contour(slope, ""));
+                //}
+
+                //foreach (var contour in contours)
+                //{
+                //    passableArea.AddRange(triangulator.TriangulateArea(contour));
+                //}
+            }
+
+            if (GUI.Button(new Rect(0f, 200f, 200f, 30f), "Triangulate"))
+            {
                 foreach (var contour in contours)
                 {
-                    passableArea.AddRange(triangulator.TriangulateArea(contour));
+                    passableArea.AddRange(triangulator.TriangulateArea(contour, groundScannerInt3Pos));
                 }
             }
 
             //if (GUI.Button(new Rect(0f, 200f, 200f, 30f), "StepByStep"))
             //{
-            //    triangulator.SBS_TriangulateArea(observedPoints, ref contour, ref passableArea);
+            //    triangulator.SBS_TriangulateArea(observedPoints, ref c, ref passableArea);
             //}
-
-            if (GUI.Button(new Rect(0f, 250f, 200f, 30f), "Slopes"))
-            {
-                var slopes = Contour.Slopes(observedPoints);
-                foreach (var slope in slopes)
-                {
-                    //contour = new Contour(slope, "");
-                    //passableArea = triangulator.TriangulateArea(contour);    
-                }
-            }
         }
     }
 }

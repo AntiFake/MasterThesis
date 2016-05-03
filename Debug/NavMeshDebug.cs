@@ -86,7 +86,7 @@ namespace MasterProject.VisualDebug
                 Gizmos.DrawLine((Vector3)triangle.pt2.position, (Vector3)triangle.pt3.position);
                 Gizmos.DrawLine((Vector3)triangle.pt3.position, (Vector3)triangle.pt1.position);
 
-                Gizmos.color = fillColor;
+                //Gizmos.color = fillColor;
                 //Gizmos.DrawMesh(GetTriangleMesh(triangle));
             }
         }

@@ -45,9 +45,10 @@ namespace MasterProject.Agent
         
         // Буфер для хранения точек. Значениями из буфера заполняется словарь хранения найденных точек.
         private List<Point3D> ptsBuffer;
-        
+
         // Механизм разбиения проходимой области на треугольники.
         private List<Contour> contours;
+        private Contour c;
         private Triangulator triangulator;
         private List<Triangle> passableArea;
         
@@ -155,10 +156,6 @@ namespace MasterProject.Agent
                 ptsBuffer.Add(new Point3D((Int3)hg_RayHit.point, hg_RayHit.collider.name));
             }
 
-            //dbg_rays.Add(new RayDebug(Color.blue, headPos, hg_Direction));
-            //dbg_rays.Add(new RayDebug(Color.blue, headPos, hm_Direction));
-            //dbg_rays.Add(new RayDebug(Color.blue, headPos, hh_Direction));
-
             observedPoints[angle].AddRange(ptsBuffer);
             ptsBuffer.Clear();
         }
@@ -220,9 +217,6 @@ namespace MasterProject.Agent
                 ptsBuffer.Add(new Point3D((Int3)gh_RayHit.point, gh_RayHit.collider.name));
             }
 
-            //dbg_rays.Add(new RayDebug(Color.red, groundPos, gg_Direction));
-            //dbg_rays.Add(new RayDebug(Color.red, groundPos, gm_Direction));
-            //dbg_rays.Add(new RayDebug(Color.red, groundPos, gh_Direction));
             observedPoints[angle].AddRange(ptsBuffer);
             ptsBuffer.Clear();
         }
@@ -499,7 +493,7 @@ namespace MasterProject.Agent
             if (observedPoints.Any())
             {
                 List<int> keys = observedPoints.Keys.ToList();
-                int key1, key2, key3;
+                int key1, key2, key3, count1, count2, count3, min_count, j;
 
                 for (int i = 1; i < keys.Count - 1; i++)
                 {
@@ -508,17 +502,79 @@ namespace MasterProject.Agent
                     key3 = keys[i + 1];
 
                     // TODO: дописать условие на принадлежность точки объекту.
-                    if (observedPoints[key1].Count == 1 &&
-                        observedPoints[key2].Count == 1 && observedPoints[key2][0].type != Point3DType.keyPt &&
-                        observedPoints[key3].Count == 1 &&
-                        GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine((Int3)observedPoints[key1][0], (Int3)observedPoints[key2][0], (Int3)observedPoints[key3][0], error)
+                    if (observedPoints[key1].Count == 1 
+                        && observedPoints[key2].Count == 1 
+                        && observedPoints[key2][0].type != Point3DType.keyPt 
+                        && observedPoints[key3].Count == 1 
+                        && GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine((Int3)observedPoints[key1][0], (Int3)observedPoints[key2][0], (Int3)observedPoints[key3][0], error)
                         )
                     {
-                        observedPoints[keys[i]][0].type = Point3DType.extraPt;
+                        observedPoints[key2][0].type = Point3DType.extraPt;
+                    }
+
+                    // Для случая наклонной плоскости.
+                    if (observedPoints[key1].Count > 1
+                        && observedPoints[key2].Count > 1
+                        && observedPoints[key3].Count > 1
+                        )
+                    {
+                        count1 = observedPoints[key1].Count;
+                        count2 = observedPoints[key2].Count;
+                        count3 = observedPoints[key3].Count;
+
+                        // Находим минимум количества точек среди наборов.
+                        if (count1 > count2)
+                        {
+                            if (count2 > count3)
+                                min_count = count3;
+                            else
+                                min_count = count2;
+                        }
+                        else
+                        {
+                            if (count1 > count3)
+                                min_count = count3;
+                            else
+                                min_count = count1;
+                        }
+
+                        j = 0;
+                        while (j < min_count)
+                        {
+                            if (GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine((Int3)observedPoints[key1][j], (Int3)observedPoints[key2][j], (Int3)observedPoints[key3][j], error))
+                                observedPoints[key2][j].type = Point3DType.extraPt;
+                            j++;
+                        }
                     }
                 }
 
-                observedPoints = observedPoints.Where(i => !(i.Value.Count == 1 && i.Value[0].type == Point3DType.extraPt)).ToDictionary(i => i.Key, i => i.Value);
+                // Удаление extra-точек.
+                foreach (var key in keys)
+                {
+                    // 1 точка в наборе.
+                    if (observedPoints[key].Count == 1 && observedPoints[key][0].type == Point3DType.extraPt)
+                    {
+                        observedPoints[key].RemoveAt(0);
+                        observedPoints.Remove(key);
+                        continue;
+                    }
+
+                    // 2 и более точек в наборе.
+                    if (observedPoints[key].Count > 1)
+                    {
+                        j = 0;
+                        while (j < observedPoints[key].Count)
+                        {
+                            if (observedPoints[key][j].type == Point3DType.extraPt)
+                                observedPoints[key].RemoveAt(j);
+                            else
+                                j++;
+                        }
+
+                        if (observedPoints[key].Count == 0)
+                            observedPoints.Remove(key);
+                    }
+                }
             }
         }
         #endregion

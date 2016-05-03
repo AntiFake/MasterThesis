@@ -54,6 +54,10 @@ namespace MasterProject.NavMesh
             }
         }
 
+        /// <summary>
+        /// Построение контура.
+        /// </summary>
+        /// <param name="pts"></param>
         public Contour(Dictionary<int, List<Point3D>> pts)
         {
             int[] keys = pts.Keys.ToArray();
@@ -82,9 +86,75 @@ namespace MasterProject.NavMesh
             }
         }
 
-        public Contour(Dictionary<int, List<Point3D>> slope, string str)
+        /// <summary>
+        /// Построение полного контура.
+        /// </summary>
+        /// <param name="pts"></param>
+        /// <param name="foo"></param>
+        public Contour(Dictionary<int, List<Point3D>> pts, string[] str)
         {
-            List<KeyValuePair<int, Point3D>> slopeBoundaries = GetSlopeBoundaries(slope);
+            int[] keys = pts.Keys.ToArray();
+            List<Point3D> list = new List<Point3D>();
+
+            bool h = false;
+            foreach (var key in keys)
+            {
+                if (pts[key].Count == 1)
+                    list.Add(pts[key][0]);
+                if (pts[key].Count > 1 && !h) {
+                    list.AddRange(pts[key]);
+                    h = true;
+                }
+                if (pts[key].Count > 1 && h)
+                {
+                    pts[key].Reverse();
+                    list.AddRange(pts[key]);
+                    h = false;
+                }
+            }
+
+            ContourPoint start = null;
+            int i = 0;
+            bool isStart = true;
+            while (i < list.Count - 1)
+            {
+                if (
+                    (list[i].obstacleName == list[i + 1].obstacleName)
+                    || (list[i].position.y == list[i + 1].position.y)
+                    )
+                {
+                    if (currentPoint == null)
+                        currentPoint = new ContourPoint(Guid.NewGuid(), list[i]);
+
+                    currentPoint.nextPoint = new ContourPoint(Guid.NewGuid(), list[i + 1]);
+                    currentPoint.nextPoint.prevPoint = currentPoint;
+                    currentPoint = currentPoint.nextPoint;
+
+                    if (isStart)
+                    {
+                        start = currentPoint.prevPoint;
+                        isStart = false;
+                    }
+                }
+                i++;
+            }
+
+            if (currentPoint.nextPoint == null)
+            {
+                currentPoint.nextPoint = start;
+                start.prevPoint = currentPoint;
+                currentPoint = currentPoint.nextPoint;
+            }
+        }
+
+        /// <summary>
+        /// Конструктор для наклонных плоскостей.
+        /// </summary>
+        /// <param name="slopes"></param>
+        /// <param name="foo"></param>
+        public Contour(Dictionary<int, List<Point3D>> slopes, string foo)
+        {
+            List<KeyValuePair<int, Point3D>> slopeBoundaries = GetSlopeBoundaries(slopes);
             ContourPoint start = null;
 
             for (int i = 1; i < slopeBoundaries.Count; i++)
@@ -157,25 +227,25 @@ namespace MasterProject.NavMesh
             int[] keys = pts.Keys.ToArray();
             List<Dictionary<int, List<Point3D>>> slopes = new List<Dictionary<int, List<Point3D>>>();
 
-            for (int i = 0; i < keys.Length; i++)
-            {
-                if (pts[keys[i]].Count > 1)
-                {
-                    int j = i;
-                    Dictionary<int, List<Point3D>> slopeContour = new Dictionary<int, List<Point3D>>();
+            //for (int i = 0; i < keys.Length; i++)
+            //{
+            //    if (pts[keys[i]].Count > 1)
+            //    {
+            //        int j = i;
+            //        Dictionary<int, List<Point3D>> slopeContour = new Dictionary<int, List<Point3D>>();
 
-                    while (pts[keys[j]].Count > 1 && j < keys.Length)
-                    {
-                        slopeContour.Add(keys[j], pts[keys[j]]);
-                        j++;
-                    }
+            //        while (pts[keys[j]].Count > 1 && j < keys.Length)
+            //        {
+            //            slopeContour.Add(keys[j], pts[keys[j]]);
+            //            j++;
+            //        }
 
-                    if (slopeContour.Count > 1)
-                        slopes.Add(slopeContour);
+            //        if (slopeContour.Count > 1)
+            //            slopes.Add(slopeContour);
 
-                    i = j;
-                }
-            }
+            //        i = j;
+            //    }
+            //}
 
             return slopes;
         }
