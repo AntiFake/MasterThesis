@@ -5,54 +5,46 @@ using System.Linq;
 using MasterProject.Core;
 using MasterProject.VisualDebug;
 using MasterProject.NavMesh;
+using MasterProject.Agent.Scanner;
 
 namespace MasterProject.Agent
 {
     public partial class Agent : MonoBehaviour
     {
+        [Header("Маска для слоя препятствий")]
         public LayerMask layerObstacles;
+
+        [Header("Радиус области видимости")]
         public int rayLength = 20;
+
+        [Header("Угол смещения сканера")]
         public int turnOYAngle = 30;
+
+        [Header("Максимально допустимый угол подъема")]
         public float maxSlopeAngle = 30f;
+
+        [Header("Допустимый уровень погрешности")]
         public float error = 3;
 
-        // Сканеры (пустые объекты на "голове" и "под ногами" агента)
-        public Transform headScanner;
-        public Transform groundScanner;
+        [Header("Верхний сканер")]
+        public Transform headScannerTransform;
 
-        #region Лучи-детекторы
-        private Ray hh_Ray;
-        private Vector3 hh_Direction;
+        [Header("Нижний сканер")]
+        public Transform groundScannerTransform;
 
-        private Ray hm_Ray;
-        private Vector3 hm_Direction;
-
-        private Ray hg_Ray;
-        private Vector3 hg_Direction;
-
-        private Ray gg_Ray;
-        private Vector3 gg_Direction;
-
-        private Ray gm_Ray;
-        private Vector3 gm_Direction;
-
-        private Ray gh_Ray;
-        private Vector3 gh_Direction;
+        private AgentHeadScanner headScanner;
+        private AgentGroundScanner groundScanner;
 
         // Словарь для хранения найденных точек.
         // Градус отклонения лучей - ключ, массив точек - список значений.
-        private Dictionary<int, List<Point3D>> observedPoints;
+        [HideInInspector]
+        public Dictionary<int, List<Point3D>> observedPoints;
         
-        // Буфер для хранения точек. Значениями из буфера заполняется словарь хранения найденных точек.
-        private List<Point3D> ptsBuffer;
-
         // Механизм разбиения проходимой области на треугольники.
         private List<Contour> contours;
         private Contour c;
         private Triangulator triangulator;
         private List<Triangle> passableArea;
-        
-        #endregion
 
         #region Сканеры
         private Int3 headScannerInt3Pos;
@@ -70,7 +62,8 @@ namespace MasterProject.Agent
             passableArea = new List<Triangle>();
             contours = new List<Contour>();
 
-            ptsBuffer = new List<Point3D>();
+            headScanner = new AgentHeadScanner();
+            groundScanner = new AgentGroundScanner();
         }
 
         public void Start()
@@ -86,176 +79,23 @@ namespace MasterProject.Agent
         private void ScanArea()
         {
             // Сохраняем позиции сканеров в Int3 для последующих расчетов.
-            headScannerInt3Pos = (Int3)headScanner.position;
-            groundScannerInt3Pos = (Int3)groundScanner.position;
+            headScannerInt3Pos = (Int3)headScannerTransform.position;
+            groundScannerInt3Pos = (Int3)groundScannerTransform.position;
 
-            int fullCircle = 360, i = (int)headScanner.eulerAngles.y;
+            int fullCircle = 360, i = (int)headScannerTransform.eulerAngles.y;
 
             while (i < fullCircle)
             {
-                CastDownRays(i);
-                CastUpRays(i);
-                RotateRayScanners();
+                groundScanner.CastRays(this, i);
+                headScanner.CastRays(this, i);
+                groundScanner.Rotate(this);
+                headScanner.Rotate(this);
 
                 i += turnOYAngle;
             }
 
-            ResetAllScanners();
-        }
-
-        /// <summary>
-        /// Запуск лучей из верхнего детектора
-        /// </summary>
-        /// <param name="angle">Угол поворота относительно вертикали</param>
-        private void CastUpRays(int angle)
-        {
-            // Инициализация.
-            Vector3 dirOX = headScanner.right * rayLength;
-            Vector3 dirOY;
-            Vector3 agentPos = transform.position,
-                    headPos = headScanner.position,
-                    groundPos = groundScanner.position;
-
-            if (!observedPoints.ContainsKey(angle))
-            {
-                observedPoints.Add(angle, new List<Point3D>());
-            }
-
-            // Head-to-Head.
-            hh_Direction = dirOX;
-
-            hh_Ray = new Ray(headPos, hh_Direction);
-            RaycastHit hh_RayHit;
-
-            if (Physics.Raycast(hh_Ray, out hh_RayHit, rayLength, layerObstacles) && hh_RayHit.point != null)
-            {
-                ptsBuffer.Add(new Point3D((Int3)hh_RayHit.point, hh_RayHit.collider.name));
-            }
-
-            // Head-to-Middle.
-            dirOY = new Vector3(agentPos.x - headPos.x, agentPos.y - headPos.y, agentPos.z - headPos.z);
-            hm_Direction = dirOX + dirOY;
-
-            hm_Ray = new Ray(headPos, hm_Direction);
-            RaycastHit hm_RayHit;
-
-            if (Physics.Raycast(hm_Ray, out hm_RayHit, rayLength, layerObstacles) && hm_RayHit.point != null)
-            {
-                ptsBuffer.Add(new Point3D((Int3)hm_RayHit.point, hm_RayHit.collider.name));
-            }
-
-            // Head-to-Ground.
-            dirOY = new Vector3(groundPos.x - headPos.x, groundPos.y - headPos.y, groundPos.z - headPos.z);
-            hg_Direction = dirOX + dirOY;
-
-            hg_Ray = new Ray(headPos, hg_Direction);
-            RaycastHit hg_RayHit;
-
-            if (Physics.Raycast(hg_Ray, out hg_RayHit, rayLength, layerObstacles) && hg_RayHit.point != null)
-            {
-                ptsBuffer.Add(new Point3D((Int3)hg_RayHit.point, hg_RayHit.collider.name));
-            }
-
-            observedPoints[angle].AddRange(ptsBuffer);
-            ptsBuffer.Clear();
-        }
-
-        /// <summary>
-        /// Запуск лучей из нижнего детектора
-        /// </summary>
-        /// <param name="angle">Угол поворота относительно вертикали</param>
-        private void CastDownRays(int angle)
-        {
-            // Инициализация.
-            Vector3 dirOX = groundScanner.right * rayLength;
-            Vector3 dirOY;
-            Vector3 agentPos = transform.position,
-                    headPos = headScanner.position,
-                    groundPos = groundScanner.position;
-
-            if (!observedPoints.ContainsKey(angle))
-            {
-                observedPoints.Add(angle, new List<Point3D>());
-            }
-
-            // Ground-to-Ground
-            gg_Direction = dirOX;
-
-            gg_Ray = new Ray(groundPos, gg_Direction);
-            RaycastHit gg_RayHit;
-
-            if (Physics.Raycast(gg_Ray, out gg_RayHit, rayLength, layerObstacles) && gg_RayHit.point != null)
-            {
-                ptsBuffer.Add(new Point3D((Int3)gg_RayHit.point, gg_RayHit.collider.name));
-            }
-            else
-            {
-                ptsBuffer.Add((Point3D)(gg_Direction + groundPos));
-            }
-
-            // Ground-to-Middle.
-            dirOY = new Vector3(agentPos.x - groundPos.x, agentPos.y - groundPos.y, agentPos.z - groundPos.z);
-            gm_Direction = dirOX + dirOY;
-
-            RaycastHit gm_RayHit;
-            gm_Ray = new Ray(groundPos, gm_Direction);
-
-            if (Physics.Raycast(gm_Ray, out gm_RayHit, rayLength, layerObstacles) && gm_RayHit.point != null)
-            {
-                ptsBuffer.Add(new Point3D((Int3)gm_RayHit.point, gm_RayHit.collider.name));
-            }
-
-            //Ground-to-Head
-            dirOY = new Vector3(headPos.x - groundPos.x, headPos.y - groundPos.y, headPos.z - groundPos.z);
-            gh_Direction = dirOY + dirOX;
-
-            RaycastHit gh_RayHit;
-            gh_Ray = new Ray(groundPos, gh_Direction);
-
-            if (Physics.Raycast(gh_Ray, out gh_RayHit, rayLength, layerObstacles) && gh_RayHit.point != null)
-            {
-                ptsBuffer.Add(new Point3D((Int3)gh_RayHit.point, gh_RayHit.collider.name));
-            }
-
-            observedPoints[angle].AddRange(ptsBuffer);
-            ptsBuffer.Clear();
-        }
-
-        /// <summary>
-        /// Поворот сканеров вокруг вертикальной оси.
-        /// </summary>
-        /// <param name="direction">Направление поворота ( = 1, по часовой стрелке; = -1, против часовой)</param>
-        private void RotateRayScanners(int direction = 1)
-        {
-            RotateRayScanner(groundScanner, direction);
-            RotateRayScanner(headScanner, direction);
-        }
-
-        /// <summary>
-        /// Сбрасывает угол поворота всех сканеров.
-        /// </summary>
-        private void ResetAllScanners()
-        {
-            ResetScannerRotation(headScanner);
-            ResetScannerRotation(groundScanner);
-        }
-
-        /// <summary>
-        /// Поворот сканера на определенный угол.
-        /// </summary>
-        /// <param name="scanner">Сканер</param>
-        private void RotateRayScanner(Transform scanner, int direction = 1)
-        {
-            scanner.Rotate(new Vector3(0f, turnOYAngle * direction, 0f));
-        }
-
-        /// <summary>
-        /// Сбрасывает угол поворота сканера.
-        /// </summary>
-        /// <param name="scanner"></param>
-        private void ResetScannerRotation(Transform scanner)
-        {
-            scanner.rotation = Quaternion.identity;
+            groundScanner.ResetRotation(this);
+            headScanner.ResetRotation(this);
         }
         #endregion
 
@@ -311,7 +151,7 @@ namespace MasterProject.Agent
             {
                 return new List<Point3D>()
                 {
-                    new Point3D(new Int3(points[index].position.x, ((Int3)groundScanner.position).y, points[index].position.z), points[index].obstacleName, points[index].type)
+                    new Point3D(new Int3(points[index].position.x, ((Int3)groundScannerTransform.position).y, points[index].position.z), points[index].obstacleName, points[index].type)
                 };
             }
 
@@ -493,7 +333,7 @@ namespace MasterProject.Agent
             if (observedPoints.Any())
             {
                 List<int> keys = observedPoints.Keys.ToList();
-                int key1, key2, key3, count1, count2, count3, min_count, j;
+                int key1, key2, key3, j;
 
                 for (int i = 1; i < keys.Count - 1; i++)
                 {
@@ -511,72 +351,102 @@ namespace MasterProject.Agent
                     {
                         observedPoints[key2][0].type = Point3DType.extraPt;
                     }
-
-                    // Для случая наклонной плоскости.
-                    if (observedPoints[key1].Count > 1
-                        && observedPoints[key2].Count > 1
-                        && observedPoints[key3].Count > 1
-                        )
-                    {
-                        count1 = observedPoints[key1].Count;
-                        count2 = observedPoints[key2].Count;
-                        count3 = observedPoints[key3].Count;
-
-                        // Находим минимум количества точек среди наборов.
-                        if (count1 > count2)
-                        {
-                            if (count2 > count3)
-                                min_count = count3;
-                            else
-                                min_count = count2;
-                        }
-                        else
-                        {
-                            if (count1 > count3)
-                                min_count = count3;
-                            else
-                                min_count = count1;
-                        }
-
-                        j = 0;
-                        while (j < min_count)
-                        {
-                            if (GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine((Int3)observedPoints[key1][j], (Int3)observedPoints[key2][j], (Int3)observedPoints[key3][j], error))
-                                observedPoints[key2][j].type = Point3DType.extraPt;
-                            j++;
-                        }
-                    }
                 }
 
-                // Удаление extra-точек.
-                foreach (var key in keys)
+                observedPoints = observedPoints.Where(i => !(i.Value.Count == 1 && i.Value[0].type == Point3DType.extraPt)).ToDictionary(i => i.Key, i => i.Value);
+
+                // <= 1 - 4
+                // > 1 && <= 3 - 3
+                // > 3 && <= 5 - 2
+                // > 5 && <= 10 - 1
+                // > 10 - 0
+
+                int limit = 0;
+                int a = 0;
+
+                if (turnOYAngle <= 1)
+                    limit = 4;
+                if (turnOYAngle > 1 && turnOYAngle <= 3)
+                    limit = 3;
+                if (turnOYAngle > 3 && turnOYAngle <= 5)
+                    limit = 2;
+                if (turnOYAngle > 5 && turnOYAngle <= 10)
+                    limit = 1;
+
+                while (a < limit)
                 {
-                    // 1 точка в наборе.
-                    if (observedPoints[key].Count == 1 && observedPoints[key][0].type == Point3DType.extraPt)
+                    j = 1;
+                    keys = observedPoints.Keys.ToList();
+                    do
                     {
-                        observedPoints[key].RemoveAt(0);
-                        observedPoints.Remove(key);
-                        continue;
-                    }
+                        f(keys, j - 1, j, j + 1);
+                        j++;
+                    } while (j < keys.Count - 1);
+                    f(keys, keys.Count - 2, keys.Count - 1, 0);
+                    f(keys, keys.Count - 1, 0, 1);
 
-                    // 2 и более точек в наборе.
-                    if (observedPoints[key].Count > 1)
+                    observedPoints = observedPoints.Where(i => !(i.Value.Count == 1 && i.Value[0].type == Point3DType.extraPt)).ToDictionary(i => i.Key, i => i.Value);
+                    a++;
+                }
+            }
+        }
+
+        private void f(List<int> keys, int j, int n, int m)
+        {
+            if (observedPoints[keys[j]].Count == 1 && observedPoints[keys[n]].Count == 1 && observedPoints[keys[m]].Count == 1)
+            {
+                if (observedPoints[keys[j]][0].type == Point3DType.keyPt
+                    && observedPoints[keys[n]][0].type == Point3DType.keyPt
+                    && observedPoints[keys[m]][0].type == Point3DType.keyPt)
+                {
+                    if (string.IsNullOrEmpty(observedPoints[keys[j]][0].obstacleName)
+                        && string.IsNullOrEmpty(observedPoints[keys[n]][0].obstacleName)
+                        && string.IsNullOrEmpty(observedPoints[keys[m]][0].obstacleName))
                     {
-                        j = 0;
-                        while (j < observedPoints[key].Count)
-                        {
-                            if (observedPoints[key][j].type == Point3DType.extraPt)
-                                observedPoints[key].RemoveAt(j);
-                            else
-                                j++;
-                        }
-
-                        if (observedPoints[key].Count == 0)
-                            observedPoints.Remove(key);
+                        observedPoints[keys[n]][0].type = Point3DType.extraPt;
                     }
                 }
             }
         }
+
+        public List<List<Point3D>> GetLayers()
+        {
+            List<List<Point3D>> layers = new List<List<Point3D>>();
+
+            // 1. Уровень земли (где число точек 1).
+            layers.Add(observedPoints.Select(i => i.Value[0]).ToList());
+
+            // 2. Наклонные плоскости (где число точек > 2).
+            int[] keys = observedPoints.Keys.ToArray();
+
+            for (int i = 0; i < keys.Length - 1; i++)
+            {
+                if (observedPoints[keys[i]].Count > 1 && observedPoints[keys[i + 1]].Count > 1)
+                {
+                    layers.Add(new List<Point3D>());
+                    layers[layers.Count - 1].AddRange(observedPoints[keys[i]]);
+
+                    for (int j = observedPoints[keys[i + 1]].Count - 1; j >= 0; j--)
+                    {
+                        layers[layers.Count - 1].Add(observedPoints[keys[i + 1]][j]);
+                    }
+                }
+            }
+
+            if (observedPoints[keys[keys.Length - 1]].Count > 1 && observedPoints[keys[0]].Count > 1)
+            {
+                layers.Add(new List<Point3D>());
+                layers[layers.Count - 1].AddRange(observedPoints[keys[keys.Length - 1]]);
+
+                for (int j = observedPoints[keys[0]].Count - 1; j >= 0; j--)
+                {
+                    layers[layers.Count - 1].Add(observedPoints[keys[0]][j]);
+                }
+            }
+
+            return layers;
+        }
+
         #endregion
     }
 }

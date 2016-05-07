@@ -15,7 +15,7 @@ namespace MasterProject.Agent
     {
         private List<RayDebug> raysDebug;
         private NavMeshDebug navMeshDebug;
-
+               
         /// <summary>
         /// Отображение точек.
         /// </summary>
@@ -76,32 +76,17 @@ namespace MasterProject.Agent
 
             if (GUI.Button(new Rect(0f, 150f, 200f, 30f), "Contour"))
             {
-                contours.Add(new Contour(observedPoints, new string[] { }));
-                //contours.Add(new Contour(observedPoints));
-                //c = new Contour(observedPoints, new string[] { });
-                //foreach (var contour in contours)
-                //{
-                //    passableArea.AddRange(triangulator.TriangulateArea(contour, groundScannerInt3Pos));
-                //}
-
-                //contours.Add(new Contour(observedPoints));
-                //var slopes = Contour.Slopes(observedPoints);
-                //foreach (var slope in slopes)
-                //{
-                //    contours.Add(new Contour(slope, ""));
-                //}
-
-                //foreach (var contour in contours)
-                //{
-                //    passableArea.AddRange(triangulator.TriangulateArea(contour));
-                //}
+                foreach (var c in GetLayers())
+                {
+                    contours.Add(new Contour(c));
+                }
             }
 
             if (GUI.Button(new Rect(0f, 200f, 200f, 30f), "Triangulate"))
             {
                 foreach (var contour in contours)
                 {
-                    passableArea.AddRange(triangulator.TriangulateArea(contour, groundScannerInt3Pos));
+                    passableArea.AddRange(triangulator.TriangulateArea(contour));
                 }
             }
 
