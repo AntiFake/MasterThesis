@@ -70,13 +70,13 @@ namespace MasterProject.Agent
         public void OnGUI()
         {
             if (GUI.Button(new Rect(0f, 0f, 80, 30), "Excl"))
-                ExcludeExtraPts();
+                measurementApproximation.MinimizeObservedPoints(this);
             if (GUI.Button(new Rect(0f, 50f, 80, 30), "Approx."))
-                ApproximatePoints();
+                generalApproximation.ApproximatePoints(this);
 
             if (GUI.Button(new Rect(0f, 150f, 200f, 30f), "Contour"))
             {
-                foreach (var c in GetLayers())
+                foreach (var c in outlineBuilder.GetOutlines(this))
                 {
                     contours.Add(new Contour(c));
                 }
