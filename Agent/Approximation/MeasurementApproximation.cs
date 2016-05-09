@@ -95,7 +95,7 @@ namespace MasterProject.Agent.Approximation
             // Если ц. точка лежит на одной прямой с двумя крайними точками поднабора, то точка считается избыточной.
             for (int i = 1; i < pointsSet.Count - 1; i++)
             {
-                if (GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine((Int3)pointsSet[i - 1], (Int3)pointsSet[i], (Int3)pointsSet[i + 1], agent.error))
+                if (GeneralGeometry.IsPointBelongsTo3DLine((Int3)pointsSet[i - 1], (Int3)pointsSet[i], (Int3)pointsSet[i + 1], agent.error))
                     pointsSet[i].type = Point3DType.extraPt;
             }
 

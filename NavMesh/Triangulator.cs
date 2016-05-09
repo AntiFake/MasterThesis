@@ -79,6 +79,8 @@ namespace MasterProject.NavMesh
                 while (contour.Count != 3);
             }
 
+            Debug.Log("Число итераций = " + it);
+
             if (contour.Count == 3)
             {
                 triangles.Add(

@@ -69,5 +69,10 @@ namespace MasterProject.Agent.ContourBuilder
 
             return outlines;
         }
+
+        public void ApproximateOutlines(ref List<List<Point3D>> outlines)
+        {
+            //for(int i = 0; i < out)
+        }
     }
 }

@@ -9,7 +9,6 @@ namespace MasterProject.Core
         public int y;
         public int z;
 
-        public const int Precision = 1000;
         public const float FloatPrecision = 1000f;
         public const float PrecisionFactor = 0.001f;
 

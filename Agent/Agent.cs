@@ -54,6 +54,7 @@ namespace MasterProject.Agent
         private List<Contour> contours;
         private Triangulator triangulator;
         private List<Triangle> passableArea;
+        private NavMeshGraph navMesh;
 
         #region MonoBehavior-функции
         public void Awake()

@@ -28,7 +28,7 @@ public class GeneralApproximation
                 && agent.observedPoints[key2].Count == 1
                 && agent.observedPoints[key2][0].type != Point3DType.keyPt
                 && agent.observedPoints[key3].Count == 1
-                && GeneralGeometry.CheckByVectorsIfPointBelongsTo3DLine(
+                && GeneralGeometry.IsPointBelongsTo3DLine(
                         (Int3)agent.observedPoints[key1][0],
                         (Int3)agent.observedPoints[key2][0],
                         (Int3)agent.observedPoints[key3][0],

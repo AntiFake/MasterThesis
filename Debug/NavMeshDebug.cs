@@ -19,9 +19,9 @@ namespace MasterProject.VisualDebug
             Mesh mesh = new Mesh();
             mesh.vertices = new Vector3[3]
             {
-                (Vector3)triangle.pt1.position,
-                (Vector3)triangle.pt2.position,
-                (Vector3)triangle.pt3.position
+                (Vector3)triangle.pt_1.position,
+                (Vector3)triangle.pt_2.position,
+                (Vector3)triangle.pt_3.position
             };
 
             mesh.triangles = new int[]
@@ -77,18 +77,28 @@ namespace MasterProject.VisualDebug
         /// </summary>
         /// <param name="color">Цвет треугольников.</param>
         /// <param name="triangles">Треугольники.</param>
-        public void DrawTriangles(Color outlineColor, Color fillColor, List<Triangle> triangles)
+        public void DrawNavMesh(Color outlineColor, Color fillColor, NavMeshGraph navMesh)
         {
-            foreach (var triangle in triangles)
+            foreach (var link in navMesh.Graph)
             {
                 Gizmos.color = outlineColor;
-                Gizmos.DrawLine((Vector3)triangle.pt1.position, (Vector3)triangle.pt2.position);
-                Gizmos.DrawLine((Vector3)triangle.pt2.position, (Vector3)triangle.pt3.position);
-                Gizmos.DrawLine((Vector3)triangle.pt3.position, (Vector3)triangle.pt1.position);
+                DrawTriangle(link.node_1.triangle);
+                DrawTriangle(link.node_2.triangle);
 
-                //Gizmos.color = fillColor;
-                //Gizmos.DrawMesh(GetTriangleMesh(triangle));
+                Gizmos.color = Color.red;
+                Gizmos.DrawLine(link.node_1.triangle.Center, link.node_2.triangle.Center);
             }
+        }
+
+        /// <summary>
+        /// Отображение треугольника navMesh.
+        /// </summary>
+        /// <param name="t">Треугольник.</param>
+        private void DrawTriangle(Triangle t)
+        {
+            Gizmos.DrawLine((Vector3) t.pt_1.position, (Vector3) t.pt_2.position);
+            Gizmos.DrawLine((Vector3)t.pt_2.position, (Vector3)t.pt_3.position);
+            Gizmos.DrawLine((Vector3)t.pt_3.position, (Vector3)t.pt_1.position);
         }
     }
 }
