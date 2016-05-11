@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using MasterProject.NavMesh;
 using System;
+using System.Linq;
 
 namespace MasterProject.VisualDebug
 {
     public class NavMeshDebug
     {
-        private long i = 0;
-
         /// <summary>
         /// Отображение заполненного цветом треугольника треугольника.
         /// </summary>
@@ -79,14 +78,18 @@ namespace MasterProject.VisualDebug
         /// <param name="triangles">Треугольники.</param>
         public void DrawNavMesh(Color outlineColor, Color fillColor, NavMeshGraph navMesh)
         {
-            foreach (var link in navMesh.Graph)
+            var keys = navMesh.Graph.Keys.ToList();
+
+            foreach (var key in keys)
             {
                 Gizmos.color = outlineColor;
-                DrawTriangle(link.node_1.triangle);
-                DrawTriangle(link.node_2.triangle);
+                DrawTriangle(key.triangle);
 
-                Gizmos.color = Color.red;
-                Gizmos.DrawLine(link.node_1.triangle.Center, link.node_2.triangle.Center);
+                foreach (var neighbour in navMesh.Graph[key])
+                {
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawLine(key.triangle.Center, neighbour.triangle.Center);
+                }
             }
         }
 

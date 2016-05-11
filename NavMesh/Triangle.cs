@@ -1,5 +1,6 @@
 ﻿using MasterProject.Core;
 using UnityEngine;
+using System;
 
 namespace MasterProject.NavMesh
 {
@@ -11,6 +12,7 @@ namespace MasterProject.NavMesh
         public Point3D pt_1;
         public Point3D pt_2;
         public Point3D pt_3;
+        public Guid guid;
 
         /// <summary>
         /// Центр тяжести треугольника.
@@ -31,6 +33,7 @@ namespace MasterProject.NavMesh
             this.pt_1 = pt1;
             this.pt_2 = pt2;
             this.pt_3 = pt3;
+            guid = Guid.NewGuid();
         }
     }
 }

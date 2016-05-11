@@ -93,7 +93,7 @@ namespace MasterProject.Agent
                     passableArea.AddRange(triangulator.TriangulateArea(contour));
                 }
 
-                navMesh = new NavMeshGraph(passableArea);
+                navMesh = new NavMeshGraph(passableArea, "");
             }
         }
 
@@ -109,17 +109,11 @@ namespace MasterProject.Agent
 
                 if (navMesh != null)
                 {
-                    foreach (var link in navMesh.Graph)
+                    foreach (var node in navMesh.Graph)
                     {
-                        if (GeneralGeometry.IsPointInsideTriangle(link.node_1.triangle, mousePos))
+                        if (GeneralGeometry.IsPointInsideTriangle(node.Key.triangle, mousePos))
                         {
-                            Debug.Log("T_1" + link.node_1.triangle.Center);
-                            break;
-                        }
-
-                        if (GeneralGeometry.IsPointInsideTriangle(link.node_2.triangle, mousePos))
-                        {
-                            Debug.Log("T_2" + link.node_2.triangle.Center);
+                            Debug.Log("Node center: " + node.Key.triangle.Center);
                             break;
                         }
                     }

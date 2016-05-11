@@ -10,54 +10,83 @@ namespace MasterProject.NavMesh
     // https://drpexe.com/a-pathfinding-using-navmesh/
     // http://www.blackpawn.com/texts/pointinpoly/default.html
 
-    public class NavMeshGraphEdge
-    {
-        public Point3D point_1;
-        public Point3D point_2;
-    }
-
-    public class NavMeshGraphNode
+    public class NavMeshGraphNode : IEquatable<NavMeshGraphNode>
     {
         public Triangle triangle;
         public Guid guid;
-    }
 
-    public class NavMeshGraphLink
-    {
-        public NavMeshGraphNode node_1;
-        public NavMeshGraphNode node_2;
-        public NavMeshGraphEdge edge;
+        public bool Equals(NavMeshGraphNode node)
+        {
+            return node != null && node.guid == guid;
+        }
+
+        public override int GetHashCode()
+        {
+            return guid.GetHashCode();
+        }
     }
 
     public class NavMeshGraph
     {
-        private List<NavMeshGraphLink> graph;
-        public List<NavMeshGraphLink> Graph
+        private Dictionary<NavMeshGraphNode, List<NavMeshGraphNode>> graph;
+
+        public Dictionary<NavMeshGraphNode, List<NavMeshGraphNode>> Graph
         {
             get
             {
                 return graph;
             }
         }
-
-        public NavMeshGraph(List<Triangle> triangles)
+        public NavMeshGraph(List<Triangle> triangles, string foo)
         {
-            graph = new List<NavMeshGraphLink>();
-            while (triangles.Count != 0)
+            graph = new Dictionary<NavMeshGraphNode, List<NavMeshGraphNode>>();
+            BuildGraph(triangles);
+        }
+
+        private void BuildGraph(List<Triangle> triangles)
+        {
+            List<Point3D> edge = new List<Point3D>();
+            int neighboursCount;
+             
+            for (int i = 0; i < triangles.Count; i++)
             {
-                BuildGraph(triangles, triangles[0]);
+                neighboursCount = 0;
+                for (int j = 0; j < triangles.Count; j++)
+                {
+                    if (triangles[i] == triangles[j])
+                        continue;
+
+                    edge = AreNeighbours(triangles[i], triangles[j]);
+
+                    // Треугольники имеют одну смежную сторону.
+                    if (edge.Count == 2)
+                    {
+                        AddGraphNode(triangles[i], triangles[j]);
+                        neighboursCount++;
+                    }
+
+                    if (neighboursCount == 3)
+                        break;
+                }
             }
         }
 
-        private void BuildGraph(List<Triangle> triangles, Triangle triangle)
+        private void AddGraphNode(Triangle triangle_1, Triangle triangle_2)
         {
-            triangles.Remove(triangle);
-            for (int i = 0; i < triangles.Count; i++)
+            NavMeshGraphNode node = new NavMeshGraphNode()
             {
-                var edge = AreNeighbours(triangle, triangles[i]);
-                if (edge.Count == 2)
-                    AddGraphLink(triangle, triangles[i], edge[0], edge[1]);
-            }
+                triangle = triangle_1,
+                guid = triangle_1.guid
+            };
+
+            if (!graph.ContainsKey(node))
+                graph.Add(node, new List<NavMeshGraphNode>() { });
+
+            graph[node].Add(new NavMeshGraphNode()
+            {
+                triangle = triangle_2,
+                guid = triangle_2.guid
+            });
         }
 
         private List<Point3D> AreNeighbours(Triangle t_1, Triangle t_2)
@@ -75,37 +104,38 @@ namespace MasterProject.NavMesh
 
             return edge;
         }
-
-        private void AddGraphLink(Triangle triangle_1, Triangle triangle_2, Point3D pt_1, Point3D pt_2)
-        {
-            graph.Add(
-                new NavMeshGraphLink()
-                {
-                    node_1 = new NavMeshGraphNode()
-                    {
-                        triangle = triangle_1,
-                        guid = Guid.NewGuid()
-                    },
-                    node_2 = new NavMeshGraphNode()
-                    {
-                        triangle = triangle_2,
-                        guid = Guid.NewGuid()
-                    },
-                    edge = new NavMeshGraphEdge()
-                    {
-                        point_1 = pt_1,
-                        point_2 = pt_2
-                    }
-                }
-            );
-        }
     }
 
+    // http://www.redblobgames.com/pathfinding/a-star/implementation.html
     public class AStarPathfinding
     {
-        private Vector3 GetAgentPosition(Agent.Agent agent)
+        private void AStarSearch(Dictionary<NavMeshGraphNode,List<NavMeshGraphNode>> graph, Agent.Agent agent, Point3D start, Point3D goal)
         {
-            return new Vector3();
+            Queue<Point3D> frontier = new Queue<Point3D>();
+            frontier.Enqueue(start);
+
+            List<Point3D> cameFrom = new List<Point3D>();
+            List<double> costSoFar = new List<double>();
+            
+
+            Point3D current;
+
+            while (frontier.Count > 0)
+            {
+                current = frontier.Dequeue();
+
+                if (current == goal)
+                    break;
+                
+                
+            }
+        }
+
+        private double Heuristic(Point3D pt_1, Point3D pt_2)
+        {
+            return Math.Abs(pt_1.position.x - pt_2.position.x)
+                   + Math.Abs(pt_1.position.y - pt_2.position.y)
+                   + Math.Abs(pt_1.position.z - pt_2.position.z);
         }
     }
 }
