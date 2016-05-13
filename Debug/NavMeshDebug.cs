@@ -83,12 +83,12 @@ namespace MasterProject.VisualDebug
             foreach (var key in keys)
             {
                 Gizmos.color = outlineColor;
-                DrawTriangle(key.triangle);
+                DrawTriangle(navMesh.Graph[key].triangle);
 
-                foreach (var neighbour in navMesh.Graph[key])
+                foreach (var neighbour in navMesh.Graph[key].neighbours)
                 {
                     Gizmos.color = Color.red;
-                    Gizmos.DrawLine(key.triangle.Center, neighbour.triangle.Center);
+                    Gizmos.DrawLine(navMesh.Graph[key].triangle.Center, neighbour.Center);
                 }
             }
         }

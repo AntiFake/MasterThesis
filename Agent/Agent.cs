@@ -55,6 +55,8 @@ namespace MasterProject.Agent
         private Triangulator triangulator;
         private List<Triangle> passableArea;
         private NavMeshGraph navMesh;
+        private List<Vector3> path;
+        private AStarPathfinding aStar;
 
         #region MonoBehavior-функции
         public void Awake()
@@ -72,6 +74,8 @@ namespace MasterProject.Agent
             measurementApproximation = new MeasurementApproximation();
             generalApproximation = new GeneralApproximation();
             outlineBuilder = new OutlineBuilder();
+
+            aStar = new AStarPathfinding();
         }
 
         public void Start()

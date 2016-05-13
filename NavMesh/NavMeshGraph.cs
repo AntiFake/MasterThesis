@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using MasterProject.Core;
 using MasterProject.Agent;
+using System.Linq;
 using System.Collections.Generic;
 using System;
 
@@ -10,36 +11,27 @@ namespace MasterProject.NavMesh
     // https://drpexe.com/a-pathfinding-using-navmesh/
     // http://www.blackpawn.com/texts/pointinpoly/default.html
 
-    public class NavMeshGraphNode : IEquatable<NavMeshGraphNode>
+
+    public class NavMeshGraphNode
     {
         public Triangle triangle;
-        public Guid guid;
-
-        public bool Equals(NavMeshGraphNode node)
-        {
-            return node != null && node.guid == guid;
-        }
-
-        public override int GetHashCode()
-        {
-            return guid.GetHashCode();
-        }
+        public List<Triangle> neighbours;
     }
 
     public class NavMeshGraph
     {
-        private Dictionary<NavMeshGraphNode, List<NavMeshGraphNode>> graph;
+        private Dictionary<Guid, NavMeshGraphNode> graph;
 
-        public Dictionary<NavMeshGraphNode, List<NavMeshGraphNode>> Graph
+        public Dictionary<Guid, NavMeshGraphNode> Graph
         {
             get
             {
                 return graph;
             }
         }
-        public NavMeshGraph(List<Triangle> triangles, string foo)
+        public NavMeshGraph(List<Triangle> triangles)
         {
-            graph = new Dictionary<NavMeshGraphNode, List<NavMeshGraphNode>>();
+            graph = new Dictionary<Guid, NavMeshGraphNode>();
             BuildGraph(triangles);
         }
 
@@ -73,20 +65,15 @@ namespace MasterProject.NavMesh
 
         private void AddGraphNode(Triangle triangle_1, Triangle triangle_2)
         {
-            NavMeshGraphNode node = new NavMeshGraphNode()
-            {
-                triangle = triangle_1,
-                guid = triangle_1.guid
-            };
 
-            if (!graph.ContainsKey(node))
-                graph.Add(node, new List<NavMeshGraphNode>() { });
+            if (!graph.ContainsKey(triangle_1.guid))
+                graph.Add(triangle_1.guid, new NavMeshGraphNode()
+                {
+                    triangle = triangle_1,
+                    neighbours = new List<Triangle>()
+                });
 
-            graph[node].Add(new NavMeshGraphNode()
-            {
-                triangle = triangle_2,
-                guid = triangle_2.guid
-            });
+            graph[triangle_1.guid].neighbours.Add(triangle_2);
         }
 
         private List<Point3D> AreNeighbours(Triangle t_1, Triangle t_2)
@@ -107,35 +94,149 @@ namespace MasterProject.NavMesh
     }
 
     // http://www.redblobgames.com/pathfinding/a-star/implementation.html
+    // http://lsreg.ru/realizaciya-algoritma-poiska-a-na-c/
     public class AStarPathfinding
     {
-        private void AStarSearch(Dictionary<NavMeshGraphNode,List<NavMeshGraphNode>> graph, Agent.Agent agent, Point3D start, Point3D goal)
+        public class PathNode
         {
-            Queue<Point3D> frontier = new Queue<Point3D>();
-            frontier.Enqueue(start);
+            // ID.
+            public Guid guid;
 
-            List<Point3D> cameFrom = new List<Point3D>();
-            List<double> costSoFar = new List<double>();
+            // Координаты точки.
+            public Vector3 position;
+
+            // Длина пути от старта (G - оценка).
+            public double pathLengthFromStart;
+
+            // Точка, из которой пришли в эту точку.
+            public PathNode cameFrom;
+
+            // Примерное расстояние до цели (H - оценка).
+            public double heuristicEstimatePathLength;
             
-
-            Point3D current;
-
-            while (frontier.Count > 0)
+            // Ожидаемое полное расстояние до конечной точки (F).
+            public double EstimateFullPathLength
             {
-                current = frontier.Dequeue();
-
-                if (current == goal)
-                    break;
-                
-                
+                get
+                {
+                    return pathLengthFromStart + heuristicEstimatePathLength;
+                }
             }
+
         }
 
-        private double Heuristic(Point3D pt_1, Point3D pt_2)
+        public List<Vector3> SearchPath(Dictionary<Guid, NavMeshGraphNode> graph, Guid start, Guid goal)
         {
-            return Math.Abs(pt_1.position.x - pt_2.position.x)
-                   + Math.Abs(pt_1.position.y - pt_2.position.y)
-                   + Math.Abs(pt_1.position.z - pt_2.position.z);
+            // 1. Открытый и закрытый списки.
+            List<PathNode> closedList = new List<PathNode>();
+            List<PathNode> openedList = new List<PathNode>();
+
+            NavMeshGraphNode goalNode = graph[goal];
+            NavMeshGraphNode startNode = graph[start];
+
+            // 2. Создание первой точки пути.
+            PathNode startPathNode = new PathNode()
+            {
+                guid = start,
+                position = graph[start].triangle.Center,
+                cameFrom = null,
+                pathLengthFromStart = 0,
+                heuristicEstimatePathLength = GetHeuristicPathLength(startNode.triangle.Center, goalNode.triangle.Center),
+            };
+            openedList.Add(startPathNode);
+
+            PathNode currentPathNode = null;
+            PathNode openPathNode = null;
+
+            while (openedList.Count > 0)
+            {
+                // 3. Выбор точки с наименьшим F.
+                currentPathNode = openedList.OrderBy(i => i.EstimateFullPathLength).First();
+
+                // 4. Если текущая точка и есть цель поиска.
+                if (currentPathNode.guid == goal)
+                    return GetPath(currentPathNode);
+
+                // 5. Перемещение текущей точки из списка ожидающих рассмотрение в уже рассмотренные.
+                openedList.Remove(currentPathNode);
+                closedList.Add(currentPathNode);
+
+                // 6. Для каждой из соседних для текущей точек:
+                foreach (var neighbourPathNode in GetNeighbours(graph, currentPathNode, goalNode))
+                {
+                    currentPathNode = neighbourPathNode;
+
+                    // Шаг 7. Если Y уже находится в рассмотренных – пропускаем ее.
+                    if (closedList.Count(i => i.guid == neighbourPathNode.guid) > 0)
+                        continue;
+
+                    openPathNode = openedList.FirstOrDefault(i => i.guid == neighbourPathNode.guid);
+                    // Шаг 8. Если Y еще нет в списке на ожидание – добавляем ее туда, 
+                    // запомнив ссылку на X и рассчитав Y.G (это X.G + расстояние от X до Y) и Y.H.
+                    if (openPathNode == null)
+                        openedList.Add(neighbourPathNode);
+                    else
+                    {
+                        if (openPathNode.pathLengthFromStart > neighbourPathNode.pathLengthFromStart)
+                        {
+                            // Шаг 9. Если же Y в списке на рассмотрение – проверяем, если X.G + расстояние от X до Y < Y.G, 
+                            // значит мы пришли в точку Y более коротким путем, заменяем Y.G на X.G + расстояние от X до Y, 
+                            // а точку, из которой пришли в Y на X.
+                            openPathNode.cameFrom = currentPathNode;
+                            openPathNode.pathLengthFromStart = neighbourPathNode.pathLengthFromStart;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private List<PathNode> GetNeighbours(Dictionary<Guid, NavMeshGraphNode> graph, PathNode currentPathNode, NavMeshGraphNode goalNode)
+        {
+            List<PathNode> pathNodes = new List<PathNode>();
+
+            foreach (var neighbour in graph[currentPathNode.guid].neighbours)
+            {
+                pathNodes.Add(new PathNode()
+                {
+                    guid = neighbour.guid,
+                    position = neighbour.Center,
+                    cameFrom = currentPathNode,
+                    pathLengthFromStart = currentPathNode.pathLengthFromStart + GetDistanceBetweenNeighbours(currentPathNode.position, neighbour.Center),
+                    heuristicEstimatePathLength = GetHeuristicPathLength(neighbour.Center, goalNode.triangle.Center)
+                });    
+            }
+
+            return pathNodes;
+        }
+
+        private double GetHeuristicPathLength(Vector3 center_1, Vector3 center_2)
+        {
+            return Math.Abs(center_1.x - center_2.x)
+                   + Math.Abs(center_1.y - center_2.y)
+                   + Math.Abs(center_1.z - center_2.z);
+        }
+
+
+        private float GetDistanceBetweenNeighbours(Vector3 center_1, Vector3 center_2)
+        {
+            return (center_1 - center_2).magnitude;
+        }
+
+        private static List<Vector3> GetPath(PathNode pathNode)
+        {
+            List<Vector3> resultPath = new List<Vector3>();
+            PathNode currentPathNode = pathNode;
+
+            while (currentPathNode != null)
+            {
+                resultPath.Add(currentPathNode.position);
+                currentPathNode = currentPathNode.cameFrom;
+            }
+
+            resultPath.Reverse();
+            return resultPath;
         }
     }
 }

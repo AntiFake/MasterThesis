@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MasterProject.VisualDebug;
 using MasterProject.NavMesh;
+using System;
 
 namespace MasterProject.Agent
 {
@@ -49,6 +50,15 @@ namespace MasterProject.Agent
             }
         }
 
+        private void DrawPath()
+        {
+            Gizmos.color = Color.cyan;
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                Gizmos.DrawLine(path[i], path[i + 1]);
+            }
+        }
+
         /// <summary>
         /// Отображение.
         /// </summary>
@@ -63,6 +73,12 @@ namespace MasterProject.Agent
             // Отображение контура
             if (contours != null)
                 navMeshDebug.DrawContours(Color.magenta, contours);
+
+            // Отображение пути
+            if (path != null && path.Any())
+            {
+                DrawPath();
+            }
 
             Gizmos.color = Color.green;
             Gizmos.DrawCube(mousePos, new Vector3(0.5f, 0.5f, 0.5f));
@@ -93,32 +109,58 @@ namespace MasterProject.Agent
                     passableArea.AddRange(triangulator.TriangulateArea(contour));
                 }
 
-                navMesh = new NavMeshGraph(passableArea, "");
+                navMesh = new NavMeshGraph(passableArea);
+
+                AStarPathfinding a = new AStarPathfinding();
+                Guid g1 = navMesh.Graph.Keys.ToList()[0];
+                Guid g2 = navMesh.Graph.Keys.ToList()[navMesh.Graph.Keys.Count - 1];
+                path = a.SearchPath(navMesh.Graph, g1, g2);
             }
         }
 
         public void Update()
         {
             // Позиция мышки.
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButtonDown(0) && navMesh != null)
             {
+                path.Clear();
+
                 RaycastHit hit;
                 Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
                 if (Physics.Raycast(ray, out hit))
                     mousePos = hit.point;
 
+                Guid start = GetAgentTriangleGuid();
+                Guid end = Guid.NewGuid();
+
+                bool isIn = false;
                 if (navMesh != null)
                 {
                     foreach (var node in navMesh.Graph)
                     {
-                        if (GeneralGeometry.IsPointInsideTriangle(node.Key.triangle, mousePos))
+                        if (GeneralGeometry.IsPointInsideTriangle(node.Value.triangle, mousePos))
                         {
-                            Debug.Log("Node center: " + node.Key.triangle.Center);
+                            Debug.Log("Node center: " + node.Value.triangle.Center);
+                            end = node.Value.triangle.guid;
+                            isIn = true;
                             break;
                         }
                     }
                 }
+
+                if (isIn)
+                {
+                    path.Add(groundScannerTransform.position);
+                    if (start != end)
+                        path.AddRange(aStar.SearchPath(navMesh.Graph, start, end));
+                    path.Add(mousePos);
+                }
             }
+        }
+
+        private Guid GetAgentTriangleGuid()
+        {
+            return navMesh.Graph.First(i => GeneralGeometry.IsPointInsideTriangle(i.Value.triangle, groundScannerTransform.position)).Key;
         }
     }
 }
