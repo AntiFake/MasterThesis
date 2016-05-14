@@ -83,19 +83,24 @@ namespace MasterProject.Core
             return new Int3(pt.position.x, pt.position.y, pt.position.z);
         }
 
-        public static Int3 operator - (Int3 ip1, Int3 ip2)
+        public static Int3 operator - (Int3 ip_1, Int3 ip_2)
         {
-            return new Int3(ip1.x - ip2.x, ip1.y - ip2.y, ip1.z - ip2.z);
+            return new Int3(ip_1.x - ip_2.x, ip_1.y - ip_2.y, ip_1.z - ip_2.z);
         }
 
-        public static int operator * (Int3 ip1, Int3 ip2)
+        public static int operator * (Int3 ip_1, Int3 ip_2)
         {
-            return ip1.x * ip2.x + ip1.y * ip2.y + ip1.z * ip2.z;
+            return ip_1.x * ip_2.x + ip_1.y * ip_2.y + ip_1.z * ip_2.z;
         }
 
-        public static Int3 operator +(Int3 ip1, Int3 ip2)
+        public static Int3 operator + (Int3 ip_1, Int3 ip_2)
         {
-            return new Int3(ip1.x + ip2.x, ip1.y + ip2.y, ip1.z + ip2.z);
+            return new Int3(ip_1.x + ip_2.x, ip_1.y + ip_2.y, ip_1.z + ip_2.z);
+        }
+
+        public static Int3 operator / (Int3 ip, int divider)
+        {
+            return new Int3(ip.x / divider, ip.y / divider, ip.z / divider);
         }
 
         /// <summary>

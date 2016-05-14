@@ -7,11 +7,6 @@ using System;
 
 namespace MasterProject.NavMesh
 {
-    // Пища для размышления.
-    // https://drpexe.com/a-pathfinding-using-navmesh/
-    // http://www.blackpawn.com/texts/pointinpoly/default.html
-
-
     public class NavMeshGraphNode
     {
         public Triangle triangle;
@@ -39,7 +34,7 @@ namespace MasterProject.NavMesh
         {
             List<Point3D> edge = new List<Point3D>();
             int neighboursCount;
-             
+
             for (int i = 0; i < triangles.Count; i++)
             {
                 neighboursCount = 0;
@@ -48,7 +43,7 @@ namespace MasterProject.NavMesh
                     if (triangles[i] == triangles[j])
                         continue;
 
-                    edge = AreNeighbours(triangles[i], triangles[j]);
+                    edge = GeneralGeometry.AreNeighbours(triangles[i], triangles[j]);
 
                     // Треугольники имеют одну смежную сторону.
                     if (edge.Count == 2)
@@ -75,32 +70,17 @@ namespace MasterProject.NavMesh
 
             graph[triangle_1.guid].neighbours.Add(triangle_2);
         }
-
-        private List<Point3D> AreNeighbours(Triangle t_1, Triangle t_2)
-        {
-            List<Point3D> edge = new List<Point3D>();
-
-            if (t_1.pt_1 == t_2.pt_1 || t_1.pt_1 == t_2.pt_2 || t_1.pt_1 == t_2.pt_3)
-                edge.Add(t_1.pt_1);
-
-            if (t_1.pt_2 == t_2.pt_1 || t_1.pt_2 == t_2.pt_2 || t_1.pt_2 == t_2.pt_3)
-                edge.Add(t_1.pt_2);
-
-            if (t_1.pt_3 == t_2.pt_1 || t_1.pt_3 == t_2.pt_2 || t_1.pt_3 == t_2.pt_3)
-                edge.Add(t_1.pt_3);
-
-            return edge;
-        }
     }
 
-    // http://www.redblobgames.com/pathfinding/a-star/implementation.html
-    // http://lsreg.ru/realizaciya-algoritma-poiska-a-na-c/
     public class AStarPathfinding
     {
         public class PathNode
         {
             // ID.
             public Guid guid;
+
+            // Треугольник NavMesh.
+            public Triangle triangle;
 
             // Координаты точки.
             public Vector3 position;
@@ -138,7 +118,8 @@ namespace MasterProject.NavMesh
             PathNode startPathNode = new PathNode()
             {
                 guid = start,
-                position = graph[start].triangle.Center,
+                triangle = startNode.triangle,
+                position = startNode.triangle.Center,
                 cameFrom = null,
                 pathLengthFromStart = 0,
                 heuristicEstimatePathLength = GetHeuristicPathLength(startNode.triangle.Center, goalNode.triangle.Center),
@@ -183,6 +164,7 @@ namespace MasterProject.NavMesh
                             // значит мы пришли в точку Y более коротким путем, заменяем Y.G на X.G + расстояние от X до Y, 
                             // а точку, из которой пришли в Y на X.
                             openPathNode.cameFrom = currentPathNode;
+                            openPathNode.triangle = currentPathNode.triangle;
                             openPathNode.pathLengthFromStart = neighbourPathNode.pathLengthFromStart;
                         }
                     }
@@ -201,6 +183,7 @@ namespace MasterProject.NavMesh
                 pathNodes.Add(new PathNode()
                 {
                     guid = neighbour.guid,
+                    triangle = neighbour,
                     position = neighbour.Center,
                     cameFrom = currentPathNode,
                     pathLengthFromStart = currentPathNode.pathLengthFromStart + GetDistanceBetweenNeighbours(currentPathNode.position, neighbour.Center),
@@ -214,8 +197,8 @@ namespace MasterProject.NavMesh
         private double GetHeuristicPathLength(Vector3 center_1, Vector3 center_2)
         {
             return Math.Abs(center_1.x - center_2.x)
-                   + Math.Abs(center_1.y - center_2.y)
-                   + Math.Abs(center_1.z - center_2.z);
+                    + Math.Abs(center_1.y - center_2.y)
+                    + Math.Abs(center_1.z - center_2.z);
         }
 
 
@@ -227,11 +210,24 @@ namespace MasterProject.NavMesh
         private static List<Vector3> GetPath(PathNode pathNode)
         {
             List<Vector3> resultPath = new List<Vector3>();
+            List<Point3D> edge = new List<Point3D>();
             PathNode currentPathNode = pathNode;
 
             while (currentPathNode != null)
             {
                 resultPath.Add(currentPathNode.position);
+
+                // Поиск сопряженного ребра.
+                if (currentPathNode.cameFrom != null)
+                {
+                    edge = GeneralGeometry.AreNeighbours(currentPathNode.triangle, currentPathNode.cameFrom.triangle);
+
+                    if (edge.Count != 2)
+                        throw new Exception("Два смежных треугольника не имеют общей стороны");
+
+                    resultPath.Add(GeneralGeometry.GetEdgeCenter(edge[0], edge[1]));
+                }
+
                 currentPathNode = currentPathNode.cameFrom;
             }
 

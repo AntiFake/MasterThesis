@@ -46,9 +46,14 @@ namespace MasterProject.Core
             return new Point3D((Int3)pt, null);
         }
 
-        public static Point3D operator -(Point3D pt1, Point3D pt2)
+        public static Point3D operator -(Point3D pt_1, Point3D pt_2)
         {
-            return new Point3D(pt1.position - pt2.position, pt1.obstacleName, pt1.type);
+            return new Point3D(pt_1.position - pt_2.position, pt_1.obstacleName, pt_1.type);
+        }
+
+        public static Point3D operator /(Point3D pt, int divider)
+        {
+            return new Point3D(pt.position / divider, pt.obstacleName, pt.type);
         }
     }
 

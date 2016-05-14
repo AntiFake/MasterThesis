@@ -58,6 +58,8 @@ namespace MasterProject.Agent
         private List<Vector3> path;
         private AStarPathfinding aStar;
 
+        private float speed = 10.0f;
+
         #region MonoBehavior-функции
         public void Awake()
         {
@@ -76,6 +78,7 @@ namespace MasterProject.Agent
             outlineBuilder = new OutlineBuilder();
 
             aStar = new AStarPathfinding();
+            path = new List<Vector3>();
         }
 
         public void Start()

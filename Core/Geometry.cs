@@ -1,6 +1,7 @@
 ﻿using System;
 using UnityEngine;
 using MasterProject.NavMesh;
+using System.Collections.Generic;
 
 namespace MasterProject.Core
 {
@@ -27,7 +28,7 @@ namespace MasterProject.Core
 
             v_1 = (Vector3)(t.pt_2.position - t.pt_1.position);
             v_2 = (Vector3)(t.pt_3.position - t.pt_1.position);
-            v_3 = checked_pt - (Vector3) t.pt_1.position;
+            v_3 = checked_pt - (Vector3)t.pt_1.position;
 
             dot_11 = Vector3.Dot(v_1, v_1);
             dot_12 = Vector3.Dot(v_1, v_2);
@@ -41,6 +42,35 @@ namespace MasterProject.Core
             v = (dot_11 * dot_23 - dot_12 * dot_13) * invDenom;
 
             return (u >= 0) && (v >= 0) && (u + v < 1);
+        }
+
+        /// <summary>
+        /// Метода позволяет проверить имееют ли общую сторону два треугольника.
+        /// Если имееют, то число точек в списке 2.
+        /// Треугольники подностью совпадают, если число точек в списке 3.
+        /// </summary>
+        /// <param name="t_1">Треугольник 1.</param>
+        /// <param name="t_2">Треугольник 2.</param>
+        /// <returns></returns>
+        public static List<Point3D> AreNeighbours(Triangle t_1, Triangle t_2)
+        {
+            List<Point3D> edge = new List<Point3D>();
+
+            if (t_1.pt_1 == t_2.pt_1 || t_1.pt_1 == t_2.pt_2 || t_1.pt_1 == t_2.pt_3)
+                edge.Add(t_1.pt_1);
+
+            if (t_1.pt_2 == t_2.pt_1 || t_1.pt_2 == t_2.pt_2 || t_1.pt_2 == t_2.pt_3)
+                edge.Add(t_1.pt_2);
+
+            if (t_1.pt_3 == t_2.pt_1 || t_1.pt_3 == t_2.pt_2 || t_1.pt_3 == t_2.pt_3)
+                edge.Add(t_1.pt_3);
+
+            return edge;
+        }
+
+        public static Vector3 GetEdgeCenter(Point3D pt_1, Point3D pt_2)
+        {
+            return (Vector3)((pt_1.position + pt_2.position) / 2);
         }
     }
 

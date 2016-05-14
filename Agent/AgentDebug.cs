@@ -111,10 +111,10 @@ namespace MasterProject.Agent
 
                 navMesh = new NavMeshGraph(passableArea);
 
-                AStarPathfinding a = new AStarPathfinding();
-                Guid g1 = navMesh.Graph.Keys.ToList()[0];
-                Guid g2 = navMesh.Graph.Keys.ToList()[navMesh.Graph.Keys.Count - 1];
-                path = a.SearchPath(navMesh.Graph, g1, g2);
+                //AStarPathfinding a = new AStarPathfinding();
+                //Guid g1 = navMesh.Graph.Keys.ToList()[0];
+                //Guid g2 = navMesh.Graph.Keys.ToList()[navMesh.Graph.Keys.Count - 1];
+                //path = a.SearchPath(navMesh.Graph, g1, g2);
             }
         }
 
@@ -151,10 +151,25 @@ namespace MasterProject.Agent
                 if (isIn)
                 {
                     path.Add(groundScannerTransform.position);
+
                     if (start != end)
                         path.AddRange(aStar.SearchPath(navMesh.Graph, start, end));
+
                     path.Add(mousePos);
                 }
+            }
+        }
+
+        private void FixedUpdate()
+        {
+            if (path.Count > 0)
+            {
+                if (transform.position != path[0])
+                    transform.position = Vector3.MoveTowards(transform.position, path[0], speed * Time.deltaTime);
+                else
+                    path.RemoveAt(0);
+
+                //  + (transform.position - groundScannerTransform.position)
             }
         }
 
